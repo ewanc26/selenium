@@ -11,6 +11,7 @@ from .ast import (
     Cast,
     Expr,
     ExprStmt,
+    ForStmt,
     FunctionDecl,
     IfStmt,
     Literal,
@@ -166,6 +167,17 @@ class SemanticAnalyzer:
             cond_type = self._infer_expr(stmt.condition, scope)
             self._require_type(cond_type, "bool", "While condition must be bool")
             self._analyze_block(stmt.body, scope, in_function)
+            return
+
+        if isinstance(stmt, ForStmt):
+            for_scope = Scope(scope)
+            if stmt.init is not None:
+                self._analyze_stmt(stmt.init, for_scope, in_function)
+            cond_type = self._infer_expr(stmt.condition, for_scope)
+            self._require_type(cond_type, "bool", "For condition must be bool")
+            if stmt.increment is not None:
+                self._analyze_stmt(stmt.increment, for_scope, in_function)
+            self._analyze_block(stmt.body, for_scope, in_function)
             return
 
         if isinstance(stmt, ReturnStmt):

@@ -8,8 +8,9 @@ Selenium is a small esoteric language with a lunar / poetic surface and a strict
 - semicolon-terminated statements
 - functions
 - variables and constants
-- `if` / `else`
-- `while`
+- `eclipse` / `shadow` for if / else
+- `tide` for while
+- `orbit` for for
 - `return`
 - `whisper` for printing
 - explicit `cast(type, expr)` conversions
@@ -28,6 +29,15 @@ eclipse (moon < tide) {
     whisper moon;
 } shadow {
     whisper tide;
+};
+
+tide (moon < 10) {
+    whisper moon;
+    moon = moon + 1;
+};
+
+orbit (wax int i = 0; i < 5; i = i + 1) {
+    whisper i;
 };
 
 whisper add(moon, tide);
