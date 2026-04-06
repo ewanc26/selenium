@@ -245,7 +245,7 @@ class Parser:
         return expr
 
     def _unary(self) -> Expr:
-        if self._match("!", "-"):
+        if self._match("!", "-", "++", "--"):
             op = self._previous().kind
             expr = self._unary()
             return Unary(op, expr)

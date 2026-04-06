@@ -243,6 +243,11 @@ class SemanticAnalyzer:
                 self._require_type(t, "bool", "Unary ! expects bool")
                 self.expr_types[id(expr)] = BUILTINS["bool"]
                 return BUILTINS["bool"]
+            if expr.op in {"++", "--"}:
+                if not t.is_numeric:
+                    raise SemanticError(f"Unary {expr.op} expects a numeric value")
+                self.expr_types[id(expr)] = t
+                return t
             raise SemanticError(f"Unsupported unary operator: {expr.op}")
         if isinstance(expr, Binary):
             left = self._infer_expr(expr.left, scope)

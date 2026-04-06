@@ -73,6 +73,11 @@ class Lexer:
                 self._advance()
                 self._advance()
                 continue
+            if two in {"++", "--"}:
+                tokens.append(Token(two, two, start_line, start_col))
+                self._advance()
+                self._advance()
+                continue
 
             if ch.isalpha() or ch == "_":
                 tokens.append(self._identifier())
