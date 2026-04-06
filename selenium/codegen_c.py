@@ -77,6 +77,10 @@ class CCodeGenerator:
         )
         self._writeline("static void selenium_print_char(char value) { printf(\"%c\\n\", value); }")
         self._writeline("static void selenium_print_string(const char *value) { printf(\"%s\\n\", value); }")
+        self._writeline("static int selenium_read_int() { int x; scanf(\"%d\", &x); return x; }")
+        self._writeline("static double selenium_read_float() { double x; scanf(\"%lf\", &x); return x; }")
+        self._writeline("static _Bool selenium_read_bool() { int x; scanf(\"%d\", &x); return x; }")
+        self._writeline("static char selenium_read_char() { char x; scanf(\" %c\", &x); return x; }")
         self._writeline("")
 
     def _emit_function(self, fn: FunctionDecl) -> None:
@@ -242,6 +246,8 @@ class CCodeGenerator:
             target = self._c_type(expr.target_type.name)
             return f"(({target})({self._expr(expr.expr)}))"
         if isinstance(expr, Call):
+            if expr.callee in {"read_int", "read_float", "read_bool", "read_char"}:
+                return f"selenium_{expr.callee}()"
             args = ", ".join(self._expr(arg) for arg in expr.args)
             return f"{expr.callee}({args})"
         if isinstance(expr, Unary):
