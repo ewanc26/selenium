@@ -8,6 +8,19 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+
+# Generated C files
+*.c
+!selenium/runtime.c
+
+# Generated executables
+bitwise
+examples/bitwise
+examples/break_continue
+examples/inc_dec
+examples/input
+examples/switch
+examples/ternary
 build/
 develop-eggs/
 dist/
