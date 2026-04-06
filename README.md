@@ -15,6 +15,7 @@ Selenium is a small esoteric language with a lunar / poetic surface and a strict
 - `break` and `continue` for loops and switch
 - prefix `++` and `--` operators
 - ternary conditional `?:`
+- bitwise operators `<<` `>>` `&` `|` `^`
 - `whisper` for printing
 - `read_int`, `read_float`, `read_bool`, `read_char` for input
 - explicit `cast(type, expr)` conversions
@@ -61,6 +62,9 @@ switch (moon) {
 
 wax int max = moon > tide ? moon : tide;
 whisper max;
+
+wax int shifted = moon << 2;
+whisper shifted;
 
 wax int input = read_int();
 whisper input;
