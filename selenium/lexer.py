@@ -76,6 +76,11 @@ class Lexer:
                 self._advance()
                 self._advance()
                 continue
+            if two in {"<<", ">>"}:
+                tokens.append(Token(two, two, start_line, start_col))
+                self._advance()
+                self._advance()
+                continue
             if two in {"++", "--"}:
                 tokens.append(Token(two, two, start_line, start_col))
                 self._advance()
@@ -95,7 +100,7 @@ class Lexer:
                 tokens.append(self._char())
                 continue
 
-            if ch in {";", ",", "(", ")", "{", "}", "+", "-", "*", "/", "%", "=", "<", ">", "!", ":", "?"}:
+            if ch in {";", ",", "(", ")", "{", "}", "+", "-", "*", "/", "%", "=", "<", ">", "!", ":", "?", "&", "|", "^"}:
                 tokens.append(Token(ch, ch, start_line, start_col))
                 self._advance()
                 continue
