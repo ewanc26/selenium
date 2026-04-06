@@ -1,0 +1,8 @@
+wax int a = 5;
+wax int b = 3;
+
+whisper a << 1;
+whisper a >> 1;
+whisper a & b;
+whisper a | b;
+whisper a ^ b;
