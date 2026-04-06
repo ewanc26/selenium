@@ -1,0 +1,7 @@
+seal int a = 5;
+seal int b = 10;
+wax int max = a > b ? a : b;
+whisper max;
+
+seal bool flag = true;
+whisper flag ? "yes" : "no";

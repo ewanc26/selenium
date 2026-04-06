@@ -111,6 +111,13 @@ class Unary:
 
 
 @dataclass(slots=True)
+class Ternary:
+    condition: "Expr"
+    then_expr: "Expr"
+    else_expr: "Expr"
+
+
+@dataclass(slots=True)
 class Binary:
     left: "Expr"
     op: str
@@ -129,6 +136,6 @@ class Cast:
     expr: "Expr"
 
 
-Expr = Union[Literal, VarRef, Unary, Binary, Call, Cast]
+Expr = Union[Literal, VarRef, Unary, Ternary, Binary, Call, Cast]
 Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
 TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
