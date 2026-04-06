@@ -1,0 +1,19 @@
+wax int x = 2;
+switch (x) {
+    case 1: {
+        whisper "one";
+        break;
+    };
+    case 2: {
+        whisper "two";
+        break;
+    };
+    case 3: {
+        whisper "three";
+        break;
+    };
+    default: {
+        whisper "other";
+        break;
+    };
+};

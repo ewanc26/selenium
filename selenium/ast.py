@@ -61,6 +61,19 @@ class WhileStmt:
 
 
 @dataclass(slots=True)
+class Case:
+    value: "Expr"
+    body: Block
+
+
+@dataclass(slots=True)
+class SwitchStmt:
+    expr: "Expr"
+    cases: List[Case]
+    default: Optional[Block]
+
+
+@dataclass(slots=True)
 class ForStmt:
     init: Optional["Stmt"]
     condition: "Expr"
@@ -137,5 +150,5 @@ class Cast:
 
 
 Expr = Union[Literal, VarRef, Unary, Ternary, Binary, Call, Cast]
-Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
-TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
+Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, SwitchStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
+TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, SwitchStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]

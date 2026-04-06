@@ -9,6 +9,7 @@ from .ast import (
     Block,
     BreakStmt,
     Call,
+    Case,
     Cast,
     ContinueStmt,
     Expr,
@@ -21,6 +22,7 @@ from .ast import (
     Program,
     ReturnStmt,
     Stmt,
+    SwitchStmt,
     Ternary,
     TopLevel,
     Unary,
@@ -106,6 +108,8 @@ class CCodeGenerator:
             self._emit_if(item)
         elif isinstance(item, WhileStmt):
             self._emit_while(item)
+        elif isinstance(item, SwitchStmt):
+            self._emit_switch(item)
         elif isinstance(item, ForStmt):
             self._emit_for(item)
         elif isinstance(item, ReturnStmt):
@@ -159,6 +163,23 @@ class CCodeGenerator:
         self._emit_statements(stmt.body.statements)
         self.indent -= 1
         self._writeline("}")
+
+    def _emit_switch(self, stmt: SwitchStmt) -> None:
+        self._writeline(f"switch ({self._expr(stmt.expr)}) {{")
+        self.indent += 1
+        for case in stmt.cases:
+            self._writeline(f"case {self._expr(case.value)}:")
+            self.indent += 1
+            self._emit_statements(case.body.statements)
+            self.indent -= 1
+        if stmt.default is not None:
+            self._writeline("default:")
+            self.indent += 1
+            self._emit_statements(stmt.default.statements)
+            self.indent -= 1
+        self.indent -= 1
+        self._writeline("}")
+
     def _emit_for(self, stmt: ForStmt) -> None:
         init_str = ""
         if stmt.init is not None:
