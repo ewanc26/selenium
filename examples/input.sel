@@ -1,0 +1,9 @@
+whisper "Enter an int:";
+
+wax int x = 0;
+
+x = read_int();
+
+whisper "You entered:";
+
+whisper x;

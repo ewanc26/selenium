@@ -307,6 +307,12 @@ class SemanticAnalyzer:
                 return BUILTINS["bool"]
             raise SemanticError(f"Unsupported binary operator: {op}")
         if isinstance(expr, Call):
+            if expr.callee in {"read_int", "read_float", "read_bool", "read_char"}:
+                if len(expr.args) != 0:
+                    raise SemanticError(f"Function {expr.callee} expects 0 arguments")
+                return_type = {"read_int": "int", "read_float": "float", "read_bool": "bool", "read_char": "char"}[expr.callee]
+                self.expr_types[id(expr)] = BUILTINS[return_type]
+                return BUILTINS[return_type]
             if expr.callee not in self.functions:
                 raise SemanticError(f"Unknown function: {expr.callee}")
             info = self.functions[expr.callee]
