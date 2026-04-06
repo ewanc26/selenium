@@ -11,6 +11,7 @@ from .ast import (
     Cast,
     Expr,
     ExprStmt,
+    ForStmt,
     FunctionDecl,
     IfStmt,
     Literal,
@@ -48,11 +49,15 @@ class CCodeGenerator:
         self.indent = 0
         self._emit_prelude()
         functions = [item for item in self.program.items if isinstance(item, FunctionDecl)]
-        others = [item for item in self.program.items if not isinstance(item, FunctionDecl)]
+        globals_ = [item for item in self.program.items if isinstance(item, VarDecl)]
+        statements = [item for item in self.program.items if not isinstance(item, (FunctionDecl, VarDecl))]
+        for var in globals_:
+            self._emit_global_var(var)
+            self._writeline("")
         for fn in functions:
             self._emit_function(fn)
             self._writeline("")
-        self._emit_main(others)
+        self._emit_main(statements)
         return "\n".join(self.lines) + "\n"
 
     def _emit_prelude(self) -> None:
@@ -98,6 +103,8 @@ class CCodeGenerator:
             self._emit_if(item)
         elif isinstance(item, WhileStmt):
             self._emit_while(item)
+        elif isinstance(item, ForStmt):
+            self._emit_for(item)
         elif isinstance(item, ReturnStmt):
             if item.value is None:
                 self._writeline("return;")
@@ -145,10 +152,35 @@ class CCodeGenerator:
         self._emit_statements(stmt.body.statements)
         self.indent -= 1
         self._writeline("}")
+    def _emit_for(self, stmt: ForStmt) -> None:
+        init_str = ""
+        if stmt.init is not None:
+            if isinstance(stmt.init, VarDecl):
+                init_str = f"{self._c_type(stmt.init.type.name)} {stmt.init.name} = {self._expr(stmt.init.value)}"
+            elif isinstance(stmt.init, Assign):
+                init_str = f"{stmt.init.name} = {self._expr(stmt.init.value)}"
+            elif isinstance(stmt.init, ExprStmt):
+                init_str = self._expr(stmt.init.expr)
+        cond_str = self._expr(stmt.condition) if stmt.condition else ""
+        inc_str = ""
+        if stmt.increment is not None:
+            if isinstance(stmt.increment, Assign):
+                inc_str = f"{stmt.increment.name} = {self._expr(stmt.increment.value)}"
+            elif isinstance(stmt.increment, ExprStmt):
+                inc_str = self._expr(stmt.increment.expr)
+        self._writeline(f"for ({init_str}; {cond_str}; {inc_str}) {{")
+        self.indent += 1
+        self._emit_statements(stmt.body.statements)
+        self.indent -= 1
+        self._writeline("}")
+    def _emit_global_var(self, decl: VarDecl) -> None:
+        ctype = self._c_type(decl.type.name)
+        qualifier = "const " if not decl.mutable and not ctype.startswith("const ") else ""
+        self._writeline(f"{qualifier}{ctype} {decl.name} = {self._expr(decl.value)};")
 
     def _emit_vardecl(self, decl: VarDecl) -> None:
         ctype = self._c_type(decl.type.name)
-        qualifier = "const " if not decl.mutable else ""
+        qualifier = "const " if not decl.mutable and not ctype.startswith("const ") else ""
         self._writeline(f"{qualifier}{ctype} {decl.name} = {self._expr(decl.value)};")
 
     def _emit_print(self, expr: Expr) -> None:

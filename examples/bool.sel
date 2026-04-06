@@ -1,0 +1,13 @@
+seal bool t = true;
+seal bool f = false;
+whisper t;
+whisper f;
+
+wax bool and = t && f;
+whisper and;
+
+wax bool or = t || f;
+whisper or;
+
+wax bool not = !f;
+whisper not;

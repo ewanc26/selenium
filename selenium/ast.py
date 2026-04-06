@@ -61,6 +61,14 @@ class WhileStmt:
 
 
 @dataclass(slots=True)
+class ForStmt:
+    init: Optional["Stmt"]
+    condition: "Expr"
+    increment: Optional["Stmt"]
+    body: Block
+
+
+@dataclass(slots=True)
 class ReturnStmt:
     value: Optional["Expr"]
 
@@ -112,5 +120,5 @@ class Cast:
 
 
 Expr = Union[Literal, VarRef, Unary, Binary, Call, Cast]
-Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, ReturnStmt, PrintStmt, ExprStmt, Block]
-TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, ReturnStmt, PrintStmt, ExprStmt, Block]
+Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, PrintStmt, ExprStmt, Block]
+TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, PrintStmt, ExprStmt, Block]

@@ -1,0 +1,5 @@
+seal char c = 'A';
+whisper c;
+
+wax int i = cast(int, c);
+whisper i;

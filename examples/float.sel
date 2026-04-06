@@ -1,0 +1,5 @@
+wax float pi = 3.14159;
+whisper pi;
+
+wax float y = cast(float, 5);
+whisper y;

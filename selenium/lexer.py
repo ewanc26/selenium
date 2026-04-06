@@ -23,6 +23,7 @@ KEYWORDS = {
     "eclipse": "ECLIPSE",
     "shadow": "SHADOW",
     "tide": "TIDE",
+    "orbit": "ORBIT",
     "whisper": "WHISPER",
     "return": "RETURN",
     "cast": "CAST",

@@ -10,6 +10,7 @@ from .ast import (
     Cast,
     Expr,
     ExprStmt,
+    ForStmt,
     FunctionDecl,
     IfStmt,
     Literal,
@@ -77,12 +78,28 @@ class Parser:
         self._consume(";", "Expected ';' after function body")
         return FunctionDecl(name, params, return_type, body)
 
+    def _for_init(self) -> Optional[Stmt]:
+        if self._match("WAX"):
+            return self._var_decl_no_semi(mutable=True)
+        if self._match("SEAL"):
+            return self._var_decl_no_semi(mutable=False)
+        if not self._check(";"):
+            return self._statement()
+        return None
+
     def _var_decl(self, mutable: bool) -> VarDecl:
         var_type = self._type_ref()
         name = self._consume("IDENT", "Expected variable name").value
         self._consume("=", "Expected '=' in declaration")
         value = self._expression()
         self._consume(";", "Expected ';' after declaration")
+        return VarDecl(mutable, var_type, name, value)
+
+    def _var_decl_no_semi(self, mutable: bool) -> VarDecl:
+        var_type = self._type_ref()
+        name = self._consume("IDENT", "Expected variable name").value
+        self._consume("=", "Expected '=' in declaration")
+        value = self._expression()
         return VarDecl(mutable, var_type, name, value)
 
     def _statement(self) -> Stmt:
@@ -104,6 +121,26 @@ class Parser:
             body = self._block()
             self._consume(";", "Expected ';' after while statement")
             return WhileStmt(cond, body)
+
+        if self._match("ORBIT"):
+            self._consume("(", "Expected '(' after orbit")
+            init = self._for_init()
+            self._consume(";", "Expected ';' after init")
+            cond = self._expression()
+            self._consume(";", "Expected ';' after condition")
+            increment = None
+            if not self._check(")"):
+                if self._check("IDENT") and self._check_next("="):
+                    name = self._advance().value
+                    self._advance()  # =
+                    value = self._expression()
+                    increment = Assign(name, value)
+                else:
+                    increment = ExprStmt(self._expression())
+            self._consume(")", "Expected ')' after increment")
+            body = self._block()
+            self._consume(";", "Expected ';' after for statement")
+            return ForStmt(init, cond, increment, body)
 
         if self._match("RETURN"):
             if self._check(";"):
