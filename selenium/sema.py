@@ -9,6 +9,7 @@ from .ast import (
     Block,
     BreakStmt,
     Call,
+    Case,
     Cast,
     ContinueStmt,
     Expr,
@@ -22,6 +23,7 @@ from .ast import (
     Program,
     ReturnStmt,
     Stmt,
+    SwitchStmt,
     Ternary,
     TopLevel,
     TypeRef,
@@ -94,6 +96,7 @@ class SemanticAnalyzer:
         self.current_return: Optional[TypeInfo] = None
         self.expr_types: Dict[int, TypeInfo] = {}
         self.loop_depth = 0
+        self.switch_depth = 0
 
     def analyze(self, program: Program) -> Program:
         for item in program.items:
@@ -188,6 +191,25 @@ class SemanticAnalyzer:
             self.loop_depth -= 1
             return
 
+        if isinstance(stmt, SwitchStmt):
+            expr_type = self._infer_expr(stmt.expr, scope)
+            self._require_type(expr_type, "int", "Switch expression must be int")
+            seen_values = set()
+            self.switch_depth += 1
+            for case in stmt.cases:
+                case_type = self._infer_expr(case.value, scope)
+                self._require_type(case_type, "int", "Case value must be int")
+                if isinstance(case.value, Literal) and case.value.kind == "int":
+                    val = case.value.value
+                    if val in seen_values:
+                        raise SemanticError(f"Duplicate case value: {val}")
+                    seen_values.add(val)
+                self._analyze_block(case.body, scope, in_function)
+            if stmt.default is not None:
+                self._analyze_block(stmt.default, scope, in_function)
+            self.switch_depth -= 1
+            return
+
         if isinstance(stmt, ReturnStmt):
             if not in_function:
                 raise SemanticError("Return is only allowed inside a function")
@@ -201,8 +223,8 @@ class SemanticAnalyzer:
             return
 
         if isinstance(stmt, BreakStmt):
-            if self.loop_depth == 0:
-                raise SemanticError("Break is only allowed inside loops")
+            if self.loop_depth == 0 and self.switch_depth == 0:
+                raise SemanticError("Break is only allowed inside loops or switch")
             return
 
         if isinstance(stmt, ContinueStmt):

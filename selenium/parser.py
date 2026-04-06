@@ -8,6 +8,7 @@ from .ast import (
     Block,
     BreakStmt,
     Call,
+    Case,
     Cast,
     ContinueStmt,
     Expr,
@@ -21,6 +22,7 @@ from .ast import (
     Program,
     ReturnStmt,
     Stmt,
+    SwitchStmt,
     Ternary,
     TopLevel,
     TypeRef,
@@ -144,6 +146,30 @@ class Parser:
             body = self._block()
             self._consume(";", "Expected ';' after for statement")
             return ForStmt(init, cond, increment, body)
+
+        if self._match("SWITCH"):
+            self._consume("(", "Expected '(' after switch")
+            expr = self._expression()
+            self._consume(")", "Expected ')' after expression")
+            self._consume("{", "Expected '{' after switch")
+            cases: List[Case] = []
+            default = None
+            while not self._check("}"):
+                if self._match("CASE"):
+                    value = self._expression()
+                    self._consume(":", "Expected ':' after case value")
+                    body = self._block()
+                    self._consume(";", "Expected ';' after case body")
+                    cases.append(Case(value, body))
+                elif self._match("DEFAULT"):
+                    self._consume(":", "Expected ':' after default")
+                    default = self._block()
+                    self._consume(";", "Expected ';' after default body")
+                else:
+                    raise ParseError("Expected case or default in switch")
+            self._consume("}", "Expected '}' after switch")
+            self._consume(";", "Expected ';' after switch statement")
+            return SwitchStmt(expr, cases, default)
 
         if self._match("RETURN"):
             if self._check(";"):
