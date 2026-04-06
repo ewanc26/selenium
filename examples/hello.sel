@@ -1,9 +1,13 @@
-seal string title = "Selenium";
+// hello.sel - demonstrate functions, constants, and variables
+
+seal string greeting = "Hello from Selenium!";
 
 ritual greet(string name) -> void {
-    whisper title;
+    whisper greeting;
     whisper name;
 };
 
-wax int moon = 3;
-whisper moon;
+greet("lunar traveller");
+
+wax int count = 3;
+whisper count;

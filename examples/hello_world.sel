@@ -1,0 +1,2 @@
+// hello_world.sel - the simplest Selenium program
+whisper "Hello, World!";
