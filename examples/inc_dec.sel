@@ -1,0 +1,7 @@
+wax int i = 0;
+whisper ++i;
+whisper i;
+
+wax int j = 10;
+whisper --j;
+whisper j;
