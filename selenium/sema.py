@@ -305,6 +305,11 @@ class SemanticAnalyzer:
                 self._require_type(right, "bool", f"Operands of {op} must be bool")
                 self.expr_types[id(expr)] = BUILTINS["bool"]
                 return BUILTINS["bool"]
+            if op in {"<<", ">>", "&", "|", "^"}:
+                self._require_type(left, "int", f"Operands of {op} must be int")
+                self._require_type(right, "int", f"Operands of {op} must be int")
+                self.expr_types[id(expr)] = BUILTINS["int"]
+                return BUILTINS["int"]
             raise SemanticError(f"Unsupported binary operator: {op}")
         if isinstance(expr, Call):
             if expr.callee in {"read_int", "read_float", "read_bool", "read_char"}:
