@@ -11,8 +11,12 @@ Selenium is a small esoteric language with a lunar / poetic surface and a strict
 - `eclipse` / `shadow` for if / else
 - `tide` for while
 - `orbit` for for
-- `return`
+- `switch` / `case` / `default` for switch statements
+- `break` and `continue` for loops and switch
+- prefix `++` and `--` operators
+- ternary conditional `?:`
 - `whisper` for printing
+- `read_int`, `read_float`, `read_bool`, `read_char` for input
 - explicit `cast(type, expr)` conversions
 
 ## Syntax sketch
@@ -39,6 +43,27 @@ tide (moon < 10) {
 orbit (wax int i = 0; i < 5; i = i + 1) {
     whisper i;
 };
+
+switch (moon) {
+    case 1: {
+        whisper "one";
+        break;
+    };
+    case 3: {
+        whisper "three";
+        break;
+    };
+    default: {
+        whisper "other";
+        break;
+    };
+};
+
+wax int max = moon > tide ? moon : tide;
+whisper max;
+
+wax int input = read_int();
+whisper input;
 
 whisper add(moon, tide);
 ```
