@@ -265,8 +265,40 @@ class Parser:
         return expr
 
     def _term(self) -> Expr:
-        expr = self._factor()
+        expr = self._bitwise_or()
         while self._match("+", "-"):
+            op = self._previous().kind
+            right = self._bitwise_or()
+            expr = Binary(expr, op, right)
+        return expr
+
+    def _bitwise_or(self) -> Expr:
+        expr = self._bitwise_xor()
+        while self._match("|"):
+            op = self._previous().kind
+            right = self._bitwise_xor()
+            expr = Binary(expr, op, right)
+        return expr
+
+    def _bitwise_xor(self) -> Expr:
+        expr = self._bitwise_and()
+        while self._match("^"):
+            op = self._previous().kind
+            right = self._bitwise_and()
+            expr = Binary(expr, op, right)
+        return expr
+
+    def _bitwise_and(self) -> Expr:
+        expr = self._shift()
+        while self._match("&"):
+            op = self._previous().kind
+            right = self._shift()
+            expr = Binary(expr, op, right)
+        return expr
+
+    def _shift(self) -> Expr:
+        expr = self._factor()
+        while self._match("<<", ">>"):
             op = self._previous().kind
             right = self._factor()
             expr = Binary(expr, op, right)
