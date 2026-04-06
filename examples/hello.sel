@@ -1,0 +1,9 @@
+seal string title = "Selenium";
+
+ritual greet(string name) -> void {
+    whisper title;
+    whisper name;
+};
+
+wax int moon = 3;
+whisper moon;

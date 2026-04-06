@@ -1,0 +1,9 @@
+ritual fact(int n) -> int {
+    eclipse (n <= 1) {
+        return 1;
+    } shadow {
+        return n * fact(n - 1);
+    };
+};
+
+whisper fact(5);
