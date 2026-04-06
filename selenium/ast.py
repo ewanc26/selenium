@@ -74,6 +74,16 @@ class ReturnStmt:
 
 
 @dataclass(slots=True)
+class BreakStmt:
+    pass
+
+
+@dataclass(slots=True)
+class ContinueStmt:
+    pass
+
+
+@dataclass(slots=True)
 class PrintStmt:
     value: "Expr"
 
@@ -120,5 +130,5 @@ class Cast:
 
 
 Expr = Union[Literal, VarRef, Unary, Binary, Call, Cast]
-Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, PrintStmt, ExprStmt, Block]
-TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, PrintStmt, ExprStmt, Block]
+Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
+TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
