@@ -22,6 +22,7 @@ from .ast import (
     Program,
     ReturnStmt,
     Stmt,
+    Ternary,
     TopLevel,
     TypeRef,
     Unary,
@@ -249,6 +250,14 @@ class SemanticAnalyzer:
                 self.expr_types[id(expr)] = t
                 return t
             raise SemanticError(f"Unsupported unary operator: {expr.op}")
+        if isinstance(expr, Ternary):
+            cond_type = self._infer_expr(expr.condition, scope)
+            self._require_type(cond_type, "bool", "Ternary condition must be bool")
+            then_type = self._infer_expr(expr.then_expr, scope)
+            else_type = self._infer_expr(expr.else_expr, scope)
+            self._require_same_type(then_type, else_type, "Ternary branches must have the same type")
+            self.expr_types[id(expr)] = then_type
+            return then_type
         if isinstance(expr, Binary):
             left = self._infer_expr(expr.left, scope)
             right = self._infer_expr(expr.right, scope)

@@ -21,6 +21,7 @@ from .ast import (
     Program,
     ReturnStmt,
     Stmt,
+    Ternary,
     TopLevel,
     Unary,
     VarDecl,
@@ -224,6 +225,11 @@ class CCodeGenerator:
             return f"{expr.callee}({args})"
         if isinstance(expr, Unary):
             return f"({expr.op}{self._expr(expr.expr)})"
+        if isinstance(expr, Ternary):
+            cond = self._expr(expr.condition)
+            then = self._expr(expr.then_expr)
+            else_ = self._expr(expr.else_expr)
+            return f"({cond} ? {then} : {else_})"
         if isinstance(expr, Binary):
             return f"({self._expr(expr.left)} {expr.op} {self._expr(expr.right)})"
         raise CodegenError(f"Unhandled expr: {type(expr).__name__}")

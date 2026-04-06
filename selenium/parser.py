@@ -21,6 +21,7 @@ from .ast import (
     Program,
     ReturnStmt,
     Stmt,
+    Ternary,
     TopLevel,
     TypeRef,
     Unary,
@@ -194,7 +195,16 @@ class Parser:
         return TypeRef(tok.value)
 
     def _expression(self) -> Expr:
-        return self._or()
+        return self._ternary()
+
+    def _ternary(self) -> Expr:
+        expr = self._or()
+        if self._match("?"):
+            then_expr = self._expression()
+            self._consume(":", "Expected ':' in ternary")
+            else_expr = self._ternary()
+            return Ternary(expr, then_expr, else_expr)
+        return expr
 
     def _or(self) -> Expr:
         expr = self._and()
