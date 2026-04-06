@@ -6,8 +6,10 @@ from .ast import (
     Assign,
     Binary,
     Block,
+    BreakStmt,
     Call,
     Cast,
+    ContinueStmt,
     Expr,
     ExprStmt,
     ForStmt,
@@ -149,6 +151,14 @@ class Parser:
             value = self._expression()
             self._consume(";", "Expected ';' after return")
             return ReturnStmt(value)
+
+        if self._match("BREAK"):
+            self._consume(";", "Expected ';' after break")
+            return BreakStmt()
+
+        if self._match("CONTINUE"):
+            self._consume(";", "Expected ';' after continue")
+            return ContinueStmt()
 
         if self._match("WHISPER"):
             value = self._expression()

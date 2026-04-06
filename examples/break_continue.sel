@@ -1,0 +1,9 @@
+orbit (wax int i = 0; i < 10; i = i + 1) {
+    eclipse (i == 3) {
+        continue;
+    };
+    eclipse (i == 7) {
+        break;
+    };
+    whisper i;
+};

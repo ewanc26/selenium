@@ -24,6 +24,8 @@ KEYWORDS = {
     "shadow": "SHADOW",
     "tide": "TIDE",
     "orbit": "ORBIT",
+    "break": "BREAK",
+    "continue": "CONTINUE",
     "whisper": "WHISPER",
     "return": "RETURN",
     "cast": "CAST",

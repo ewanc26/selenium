@@ -7,8 +7,10 @@ from .ast import (
     Assign,
     Binary,
     Block,
+    BreakStmt,
     Call,
     Cast,
+    ContinueStmt,
     Expr,
     ExprStmt,
     ForStmt,
@@ -90,6 +92,7 @@ class SemanticAnalyzer:
         self.functions: Dict[str, FunctionInfo] = {}
         self.current_return: Optional[TypeInfo] = None
         self.expr_types: Dict[int, TypeInfo] = {}
+        self.loop_depth = 0
 
     def analyze(self, program: Program) -> Program:
         for item in program.items:
@@ -166,7 +169,9 @@ class SemanticAnalyzer:
         if isinstance(stmt, WhileStmt):
             cond_type = self._infer_expr(stmt.condition, scope)
             self._require_type(cond_type, "bool", "While condition must be bool")
+            self.loop_depth += 1
             self._analyze_block(stmt.body, scope, in_function)
+            self.loop_depth -= 1
             return
 
         if isinstance(stmt, ForStmt):
@@ -177,7 +182,9 @@ class SemanticAnalyzer:
             self._require_type(cond_type, "bool", "For condition must be bool")
             if stmt.increment is not None:
                 self._analyze_stmt(stmt.increment, for_scope, in_function)
+            self.loop_depth += 1
             self._analyze_block(stmt.body, for_scope, in_function)
+            self.loop_depth -= 1
             return
 
         if isinstance(stmt, ReturnStmt):
@@ -190,6 +197,16 @@ class SemanticAnalyzer:
             else:
                 value_type = self._infer_expr(stmt.value, scope)
                 self._require_same_type(self.current_return, value_type, "Return type mismatch")
+            return
+
+        if isinstance(stmt, BreakStmt):
+            if self.loop_depth == 0:
+                raise SemanticError("Break is only allowed inside loops")
+            return
+
+        if isinstance(stmt, ContinueStmt):
+            if self.loop_depth == 0:
+                raise SemanticError("Continue is only allowed inside loops")
             return
 
         if isinstance(stmt, PrintStmt):

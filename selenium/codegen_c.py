@@ -7,8 +7,10 @@ from .ast import (
     Assign,
     Binary,
     Block,
+    BreakStmt,
     Call,
     Cast,
+    ContinueStmt,
     Expr,
     ExprStmt,
     ForStmt,
@@ -110,6 +112,10 @@ class CCodeGenerator:
                 self._writeline("return;")
             else:
                 self._writeline(f"return {self._expr(item.value)};")
+        elif isinstance(item, BreakStmt):
+            self._writeline("break;")
+        elif isinstance(item, ContinueStmt):
+            self._writeline("continue;")
         elif isinstance(item, PrintStmt):
             self._emit_print(item.value)
         elif isinstance(item, ExprStmt):
