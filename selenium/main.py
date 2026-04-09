@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
             c_file.write_text(c_code, encoding="utf-8")
             try:
                 result = subprocess.run(
-                    [args.cc, str(c_file), "-o", str(exe_file)],
+                    [args.cc, str(c_file), "-o", str(exe_file), "-lm"],
                     capture_output=True,
                     text=True,
                 )
