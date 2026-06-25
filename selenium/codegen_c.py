@@ -1,3 +1,9 @@
+"""C code generator for Selenium.
+
+Walks the analysed AST and emits C89-compatible source.
+Each Selenium construct maps to its C equivalent; the I/O
+builtins compile to thin static wrapper functions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -34,7 +40,7 @@ from .sema import TypeInfo
 
 
 class CodegenError(Exception):
-    pass
+    """Raised when an AST node cannot be translated to C."""
 
 
 @dataclass(slots=True)
@@ -43,6 +49,12 @@ class CodegenContext:
 
 
 class CCodeGenerator:
+    """Walk the analysed AST and emit C89-compatible source code.
+
+    Selenium's lunar keywords (ritual, eclipse, tide, whisper, ...)
+    compile directly to their C equivalents. Built-in I/O functions
+    delegate to static wrapper functions emitted in the prelude."""
+
     def __init__(self, program: Program, context: CodegenContext):
         self.program = program
         self.ctx = context
@@ -50,6 +62,7 @@ class CCodeGenerator:
         self.indent = 0
 
     def generate(self) -> str:
+        """Produce the full C source: prelude, globals, functions, main."""
         self.lines = []
         self.indent = 0
         self._emit_prelude()
@@ -64,6 +77,8 @@ class CCodeGenerator:
             self._writeline("")
         self._emit_main(statements)
         return "\n".join(self.lines) + "\n"
+
+    # ── C prelude (I/O wrappers) ──────────────────────────────────
 
     def _emit_prelude(self) -> None:
         self._writeline("#include <stdbool.h>")
@@ -82,6 +97,8 @@ class CCodeGenerator:
         self._writeline("static _Bool selenium_read_bool() { int x; scanf(\"%d\", &x); return x; }")
         self._writeline("static char selenium_read_char() { char x; scanf(\" %c\", &x); return x; }")
         self._writeline("")
+
+    # ── Function emission ─────────────────────────────────────────
 
     def _emit_function(self, fn: FunctionDecl) -> None:
         ret = self._c_type(fn.return_type.name)
@@ -102,6 +119,8 @@ class CCodeGenerator:
         self._writeline("return 0;")
         self.indent -= 1
         self._writeline("}")
+
+    # ── Statement-by-statement dispatch ───────────────────────────
 
     def _emit_item(self, item: object) -> None:
         if isinstance(item, VarDecl):
@@ -230,6 +249,8 @@ class CCodeGenerator:
             self._writeline(f"selenium_print_string({text});")
         else:
             raise CodegenError(f"Cannot print type {t.name}")
+
+    # ── Expression emission ───────────────────────────────────────
 
     def _expr(self, expr: Expr) -> str:
         if isinstance(expr, Literal):

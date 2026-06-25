@@ -1,3 +1,10 @@
+"""Semantic analyser and type checker for Selenium.
+
+Two-pass over the AST: first pass registers all function signatures
+so forward calls resolve; second pass type-checks every expression
+and statement, building a type map keyed by object identity for the
+code generator."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -35,7 +42,7 @@ from .ast import (
 
 
 class SemanticError(Exception):
-    pass
+    """Raised when a program passes syntax but violates Selenium's type rules."""
 
 
 @dataclass(slots=True)
@@ -64,16 +71,20 @@ BUILTINS = {name: TypeInfo(name) for name in ("int", "float", "bool", "char", "s
 
 
 class Scope:
+    """Lexical scope chain: names defined here or in parent scopes."""
+
     def __init__(self, parent: Optional["Scope"] = None):
         self.parent = parent
         self.symbols: Dict[str, Symbol] = {}
 
     def define(self, name: str, symbol: Symbol) -> None:
+        """Bind a name in this scope. Rejects duplicates."""
         if name in self.symbols:
             raise SemanticError(f"Duplicate name: {name}")
         self.symbols[name] = symbol
 
     def lookup(self, name: str) -> Symbol:
+        """Resolve a name by walking the scope chain upward."""
         scope: Optional[Scope] = self
         while scope is not None:
             if name in scope.symbols:
@@ -89,7 +100,15 @@ class FunctionInfo:
     return_type: TypeInfo
 
 
+# ── Symbol tables ─────────────────────────────────────────────────
+
 class SemanticAnalyzer:
+    """Two-pass type checker and name resolver.
+
+    Pass 1 registers all function signatures (enabling forward calls).
+    Pass 2 walks every top-level item and expression, validating types
+    and populating ``expr_types`` for downstream code generation."""
+
     def __init__(self):
         self.globals = Scope()
         self.functions: Dict[str, FunctionInfo] = {}
@@ -99,6 +118,7 @@ class SemanticAnalyzer:
         self.switch_depth = 0
 
     def analyze(self, program: Program) -> Program:
+        """Run both passes over the program. Mutates ``expr_types`` in place."""
         for item in program.items:
             if isinstance(item, FunctionDecl):
                 self._register_function(item)
@@ -246,6 +266,8 @@ class SemanticAnalyzer:
 
         raise SemanticError(f"Unhandled statement type: {type(stmt).__name__}")
 
+    # ── Expression type inference ──────────────────────────────────
+
     def _infer_expr(self, expr: Expr, scope: Scope) -> TypeInfo:
         if isinstance(expr, Literal):
             t = self._type_of_literal(expr)
@@ -353,6 +375,8 @@ class SemanticAnalyzer:
                 return dst
             raise SemanticError(f"Unsupported cast from {src.name} to {dst.name}")
         raise SemanticError(f"Unhandled expression type: {type(expr).__name__}")
+
+    # ── Helpers ────────────────────────────────────────────────────
 
     def _type_of_literal(self, lit: Literal) -> TypeInfo:
         return BUILTINS[lit.kind]

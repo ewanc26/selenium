@@ -1,3 +1,5 @@
+// Prefix increment and decrement operators.
+
 wax int i = 0;
 whisper ++i;
 whisper i;

@@ -1,3 +1,9 @@
+"""Recursive-descent parser for Selenium.
+
+Tokenises source via the lexer, then walks a Pratt-style
+precedence-climbing expression parser inside a statement-first
+top-down structure. Produces a Program AST."""
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -35,26 +41,36 @@ from .lexer import Lexer, Token, LexError
 
 
 class ParseError(Exception):
-    pass
+    """Raised on syntax errors with line/col context and expected token details."""
 
 
 TYPE_TOKENS = {"TYPE"}
 
 
 class Parser:
+    """Recursive-descent parser over a token stream.
+
+    Expression parsing uses operator-precedence climbing (Pratt-style)
+    for correct associativity and precedence across 11 levels."""
+
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
         self.i = 0
 
     @classmethod
     def from_source(cls, source: str) -> "Parser":
+        """Convenience: lex source, return parser ready to go."""
         return cls(Lexer(source).tokenize())
 
     def parse(self) -> Program:
+        """Parse the full token stream into a Program AST."""
+
         items: List[TopLevel] = []
         while not self._check("EOF"):
             items.append(self._declaration_or_stmt())
         return Program(items)
+
+    # ── Top-level dispatch ────────────────────────────────────────────
 
     def _declaration_or_stmt(self) -> TopLevel:
         if self._match("RITUAL"):
@@ -106,6 +122,8 @@ class Parser:
         self._consume("=", "Expected '=' in declaration")
         value = self._expression()
         return VarDecl(mutable, var_type, name, value)
+
+    # ── Statement parsing ───────────────────────────────────────────
 
     def _statement(self) -> Stmt:
         if self._match("ECLIPSE"):
@@ -219,6 +237,8 @@ class Parser:
     def _type_ref(self) -> TypeRef:
         tok = self._consume("TYPE", "Expected type name")
         return TypeRef(tok.value)
+
+    # ── Expression parsing (precedence climbing) ────────────────────
 
     def _expression(self) -> Expr:
         return self._ternary()
@@ -359,6 +379,8 @@ class Parser:
             self._consume(")", "Expected ')' after cast")
             return Cast(target, expr)
         raise self._error(self._peek(), "Expected expression")
+
+    # ── Parser primitives ───────────────────────────────────────────
 
     def _match(self, *kinds: str) -> bool:
         for kind in kinds:

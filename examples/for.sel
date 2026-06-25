@@ -1,3 +1,5 @@
+// For-loop equivalent: orbit with init, condition, and increment.
+
 orbit (wax int i = 0; i < 5; i = i + 1) {
     whisper i;
 };

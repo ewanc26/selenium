@@ -1,3 +1,9 @@
+"""CLI entry point for the Selenium compiler.
+
+Invoked as ``seleniumc`` (installed via pyproject.toml).
+Compiles .sel files to C; optionally drives the C compiler
+and runs the result in one step."""
+
 from __future__ import annotations
 
 import argparse
@@ -12,10 +18,11 @@ from .sema import SemanticAnalyzer, SemanticError
 
 
 class CompileError(Exception):
-    pass
+    """Raised on failures that fall outside parse or semantic errors."""
 
 
 def compile_source(source: str) -> str:
+    """Full compilation pipeline: parse, type-check, emit C."""
     parser = Parser.from_source(source)
     program = parser.parse()
     analyzer = SemanticAnalyzer()
@@ -25,6 +32,7 @@ def compile_source(source: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI entry point. Parse args, compile, optionally compile C and run."""
     ap = argparse.ArgumentParser(
         prog="seleniumc",
         description="Compile Selenium source to C (optionally compile & run)",

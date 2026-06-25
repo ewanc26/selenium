@@ -1,3 +1,5 @@
+// Ternary conditional: compute max, then use inline for string choice.
+
 seal int a = 5;
 seal int b = 10;
 wax int max = a > b ? a : b;

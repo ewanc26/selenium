@@ -1,3 +1,5 @@
+// Bitwise shift and logical operators on integers.
+
 wax int a = 5;
 wax int b = 3;
 

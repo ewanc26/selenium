@@ -1,3 +1,8 @@
+"""Tokeniser for the Selenium language.
+
+Maps source text to a stream of tokens: keywords, literals, operators,
+and delimiters. Every token carries line and column for error reporting."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -5,7 +10,7 @@ from typing import Any, List
 
 
 class LexError(Exception):
-    pass
+    """Raised on invalid tokens, unterminated literals, or unexpected characters."""
 
 
 @dataclass(slots=True)
@@ -44,6 +49,12 @@ KEYWORDS = {
 
 
 class Lexer:
+    """Scan source text left-to-right, producing a token list.
+
+    Handles line comments (//), block comments (/* */), identifiers,
+    numeric literals (int and float), string/char literals with escape
+    sequences, and all operator symbols."""
+
     def __init__(self, source: str):
         self.source = source
         self.length = len(source)
@@ -52,6 +63,7 @@ class Lexer:
         self.col = 1
 
     def tokenize(self) -> List[Token]:
+        """Scan the entire source and return the token stream."""
         tokens: List[Token] = []
         while not self._eof():
             ch = self._peek()

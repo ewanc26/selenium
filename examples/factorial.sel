@@ -1,3 +1,6 @@
+// Recursive factorial -- exercises function definition, conditionals,
+// and recursion (all forward-declarable in Selenium).
+
 ritual fact(int n) -> int {
     eclipse (n <= 1) {
         return 1;

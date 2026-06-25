@@ -1,3 +1,5 @@
+// Character literals and cast to integer (ASCII value).
+
 seal char c = 'A';
 whisper c;
 

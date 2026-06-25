@@ -1,3 +1,5 @@
+// Boolean literals, logical operators, and negation.
+
 seal bool t = true;
 seal bool f = false;
 whisper t;

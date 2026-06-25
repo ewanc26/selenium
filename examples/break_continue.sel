@@ -1,3 +1,5 @@
+// Loop control: skip i==3 with continue, stop at i==7 with break.
+
 orbit (wax int i = 0; i < 10; i = i + 1) {
     eclipse (i == 3) {
         continue;

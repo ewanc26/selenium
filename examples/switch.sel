@@ -1,3 +1,5 @@
+// Switch statement with multiple cases and a default branch.
+
 wax int x = 2;
 switch (x) {
     case 1: {

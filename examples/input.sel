@@ -1,3 +1,6 @@
+// Runtime input: prompt, read, display -- exercises the read_int
+// built-in and variable assignment.
+
 whisper "Enter an int:";
 
 wax int x = 0;

@@ -1,3 +1,5 @@
+// Floating-point literals, variables, and explicit cast from int.
+
 wax float pi = 3.14159;
 whisper pi;
 

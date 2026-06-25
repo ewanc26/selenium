@@ -1,3 +1,7 @@
+# ── Selenium compiler dev shell ─────────────────────────────────────
+# Provides Python 3 + setuptools + virtualenv for hacking on the
+# compiler itself.  Formatting is handled by nixfmt-rfc-style.
+
 {
   description = "selenium — lunar/poetic esoteric language that compiles to C";
 

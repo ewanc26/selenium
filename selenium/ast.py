@@ -1,3 +1,9 @@
+"""AST node types for the Selenium language.
+
+Every construct in the language maps to a dataclass here.
+The parse phase produces these; the semantic analyser and code
+generator consume them by isinstance-dispatch."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
