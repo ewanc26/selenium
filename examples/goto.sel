@@ -1,0 +1,8 @@
+// Goto and labels: jump to a labelled block.
+
+wax int x = 0;
+drift skip;
+x = 42;
+skip: {
+    whisper x;
+};

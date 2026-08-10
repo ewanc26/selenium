@@ -9,33 +9,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List
 
-from .ast import (
-    Assign,
-    Binary,
-    Block,
-    BreakStmt,
-    Call,
-    Case,
-    Cast,
-    ContinueStmt,
-    Expr,
-    ExprStmt,
-    ForStmt,
-    FunctionDecl,
-    IfStmt,
-    Literal,
-    PrintStmt,
-    Program,
-    ReturnStmt,
-    Stmt,
-    SwitchStmt,
-    Ternary,
-    TopLevel,
-    Unary,
-    VarDecl,
-    VarRef,
-    WhileStmt,
-)
+from .ast import (Assign, Binary, Block, BreakStmt, Call, Case, Cast,
+                  ContinueStmt, DoWhileStmt, Expr, ExprStmt, ForStmt,
+                  FunctionDecl, GotoStmt, IfStmt, Label, Literal, Param,
+                  PrintStmt, Program, ReturnStmt, SizeofExpr, Stmt, SwitchStmt,
+                  Ternary, TopLevel, TypeRef, Unary, VarDecl, VarRef,
+                  WhileStmt)
 from .sema import TypeInfo
 
 
@@ -46,6 +25,7 @@ class CodegenError(Exception):
 @dataclass(slots=True)
 class CodegenContext:
     expr_types: Dict[int, TypeInfo]
+    used_builtins: set
 
 
 class CCodeGenerator:
@@ -65,10 +45,16 @@ class CCodeGenerator:
         """Produce the full C source: prelude, globals, functions, main."""
         self.lines = []
         self.indent = 0
-        self._emit_prelude()
-        functions = [item for item in self.program.items if isinstance(item, FunctionDecl)]
+        self._emit_prelude(self.ctx.used_builtins)
+        functions = [
+            item for item in self.program.items if isinstance(item, FunctionDecl)
+        ]
         globals_ = [item for item in self.program.items if isinstance(item, VarDecl)]
-        statements = [item for item in self.program.items if not isinstance(item, (FunctionDecl, VarDecl))]
+        statements = [
+            item
+            for item in self.program.items
+            if not isinstance(item, (FunctionDecl, VarDecl))
+        ]
         for var in globals_:
             self._emit_global_var(var)
             self._writeline("")
@@ -80,22 +66,47 @@ class CCodeGenerator:
 
     # ── C prelude (I/O wrappers) ──────────────────────────────────
 
-    def _emit_prelude(self) -> None:
+    def _emit_prelude(self, used_builtins: set) -> None:
         self._writeline("#include <stdbool.h>")
         self._writeline("#include <stdio.h>")
         self._writeline("#include <stdlib.h>")
         self._writeline("")
-        self._writeline("static void selenium_print_int(int value) { printf(\"%d\\n\", value); }")
-        self._writeline("static void selenium_print_float(double value) { printf(\"%g\\n\", value); }")
-        self._writeline(
-            "static void selenium_print_bool(_Bool value) { printf(\"%s\\n\", value ? \"true\" : \"false\"); }"
-        )
-        self._writeline("static void selenium_print_char(char value) { printf(\"%c\\n\", value); }")
-        self._writeline("static void selenium_print_string(const char *value) { printf(\"%s\\n\", value); }")
-        self._writeline("static int selenium_read_int() { int x; scanf(\"%d\", &x); return x; }")
-        self._writeline("static double selenium_read_float() { double x; scanf(\"%lf\", &x); return x; }")
-        self._writeline("static _Bool selenium_read_bool() { int x; scanf(\"%d\", &x); return x; }")
-        self._writeline("static char selenium_read_char() { char x; scanf(\" %c\", &x); return x; }")
+        if "int" in used_builtins:
+            self._writeline(
+                'static void selenium_print_int(int value) { printf("%d\\n", value); }'
+            )
+        if "float" in used_builtins:
+            self._writeline(
+                'static void selenium_print_float(double value) { printf("%g\\n", value); }'
+            )
+        if "bool" in used_builtins:
+            self._writeline(
+                'static void selenium_print_bool(_Bool value) { printf("%s\\n", value ? "true" : "false"); }'
+            )
+        if "char" in used_builtins:
+            self._writeline(
+                'static void selenium_print_char(char value) { printf("%c\\n", value); }'
+            )
+        if "string" in used_builtins:
+            self._writeline(
+                'static void selenium_print_string(const char *value) { printf("%s\\n", value); }'
+            )
+        if "read_int" in used_builtins:
+            self._writeline(
+                'static int selenium_read_int(void) { int x; scanf("%d", &x); return x; }'
+            )
+        if "read_float" in used_builtins:
+            self._writeline(
+                'static double selenium_read_float(void) { double x; scanf("%lf", &x); return x; }'
+            )
+        if "read_bool" in used_builtins:
+            self._writeline(
+                'static _Bool selenium_read_bool(void) { int x; scanf("%d", &x); return x; }'
+            )
+        if "read_char" in used_builtins:
+            self._writeline(
+                'static char selenium_read_char(void) { char x; scanf(" %c", &x); return x; }'
+            )
         self._writeline("")
 
     # ── Function emission ─────────────────────────────────────────
@@ -131,6 +142,13 @@ class CCodeGenerator:
             self._emit_if(item)
         elif isinstance(item, WhileStmt):
             self._emit_while(item)
+        elif isinstance(item, DoWhileStmt):
+            self._emit_do_while(item)
+        elif isinstance(item, GotoStmt):
+            self._writeline(f"goto {item.label};")
+        elif isinstance(item, Label):
+            self._writeline(f"{item.name}:;")
+            self._emit_block_stmt(item.body)
         elif isinstance(item, SwitchStmt):
             self._emit_switch(item)
         elif isinstance(item, ForStmt):
@@ -167,7 +185,7 @@ class CCodeGenerator:
         self._writeline("}")
 
     def _emit_if(self, stmt: IfStmt) -> None:
-        self._writeline(f"if ({self._expr(stmt.condition)}) {{")
+        self._writeline(f"if ({self._expr(stmt.condition, parens=False)}) {{")
         self.indent += 1
         self._emit_statements(stmt.then_block.statements)
         self.indent -= 1
@@ -181,14 +199,21 @@ class CCodeGenerator:
             self._writeline("}")
 
     def _emit_while(self, stmt: WhileStmt) -> None:
-        self._writeline(f"while ({self._expr(stmt.condition)}) {{")
+        self._writeline(f"while ({self._expr(stmt.condition, parens=False)}) {{")
         self.indent += 1
         self._emit_statements(stmt.body.statements)
         self.indent -= 1
         self._writeline("}")
 
+    def _emit_do_while(self, stmt: DoWhileStmt) -> None:
+        self._writeline("do {")
+        self.indent += 1
+        self._emit_statements(stmt.body.statements)
+        self.indent -= 1
+        self._writeline(f"}} while ({self._expr(stmt.condition, parens=False)});")
+
     def _emit_switch(self, stmt: SwitchStmt) -> None:
-        self._writeline(f"switch ({self._expr(stmt.expr)}) {{")
+        self._writeline(f"switch ({self._expr(stmt.expr, parens=False)}) {{")
         self.indent += 1
         for case in stmt.cases:
             self._writeline(f"case {self._expr(case.value)}:")
@@ -212,7 +237,7 @@ class CCodeGenerator:
                 init_str = f"{stmt.init.name} = {self._expr(stmt.init.value)}"
             elif isinstance(stmt.init, ExprStmt):
                 init_str = self._expr(stmt.init.expr)
-        cond_str = self._expr(stmt.condition) if stmt.condition else ""
+        cond_str = self._expr(stmt.condition, parens=False) if stmt.condition else ""
         inc_str = ""
         if stmt.increment is not None:
             if isinstance(stmt.increment, Assign):
@@ -224,14 +249,19 @@ class CCodeGenerator:
         self._emit_statements(stmt.body.statements)
         self.indent -= 1
         self._writeline("}")
+
     def _emit_global_var(self, decl: VarDecl) -> None:
         ctype = self._c_type(decl.type.name)
-        qualifier = "const " if not decl.mutable and not ctype.startswith("const ") else ""
+        qualifier = (
+            "const " if not decl.mutable and not ctype.startswith("const ") else ""
+        )
         self._writeline(f"{qualifier}{ctype} {decl.name} = {self._expr(decl.value)};")
 
     def _emit_vardecl(self, decl: VarDecl) -> None:
         ctype = self._c_type(decl.type.name)
-        qualifier = "const " if not decl.mutable and not ctype.startswith("const ") else ""
+        qualifier = (
+            "const " if not decl.mutable and not ctype.startswith("const ") else ""
+        )
         self._writeline(f"{qualifier}{ctype} {decl.name} = {self._expr(decl.value)};")
 
     def _emit_print(self, expr: Expr) -> None:
@@ -252,7 +282,7 @@ class CCodeGenerator:
 
     # ── Expression emission ───────────────────────────────────────
 
-    def _expr(self, expr: Expr) -> str:
+    def _expr(self, expr: Expr, parens: bool = True) -> str:
         if isinstance(expr, Literal):
             if expr.kind == "string":
                 return self._escape_string(expr.value)
@@ -273,20 +303,30 @@ class CCodeGenerator:
             return f"{expr.callee}({args})"
         if isinstance(expr, Unary):
             return f"({expr.op}{self._expr(expr.expr)})"
+        if isinstance(expr, SizeofExpr):
+            if expr.target_type is not None:
+                return f"sizeof({self._c_type(expr.target_type.name)})"
+            return f"sizeof({self._expr(expr.expr)})"
         if isinstance(expr, Ternary):
             cond = self._expr(expr.condition)
             then = self._expr(expr.then_expr)
             else_ = self._expr(expr.else_expr)
             return f"({cond} ? {then} : {else_})"
         if isinstance(expr, Binary):
-            return f"({self._expr(expr.left)} {expr.op} {self._expr(expr.right)})"
+            left = self._expr(expr.left, parens=False)
+            right = self._expr(expr.right, parens=False)
+            if parens:
+                return f"({left} {expr.op} {right})"
+            return f"{left} {expr.op} {right}"
         raise CodegenError(f"Unhandled expr: {type(expr).__name__}")
 
     def _type_of(self, expr: Expr) -> TypeInfo:
         try:
             return self.ctx.expr_types[id(expr)]
         except KeyError as exc:
-            raise CodegenError(f"Missing inferred type for {type(expr).__name__}") from exc
+            raise CodegenError(
+                f"Missing inferred type for {type(expr).__name__}"
+            ) from exc
 
     def _c_type(self, name: str) -> str:
         mapping = {

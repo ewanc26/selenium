@@ -28,15 +28,18 @@ KEYWORDS = {
     "eclipse": "ECLIPSE",
     "shadow": "SHADOW",
     "tide": "TIDE",
+    "undertow": "UNDERTOW",
     "orbit": "ORBIT",
     "switch": "SWITCH",
     "case": "CASE",
     "default": "DEFAULT",
     "break": "BREAK",
     "continue": "CONTINUE",
+    "drift": "DRIFT",
     "whisper": "WHISPER",
     "return": "RETURN",
     "cast": "CAST",
+    "measure": "MEASURE",
     "true": "BOOL",
     "false": "BOOL",
     "int": "TYPE",
@@ -45,6 +48,54 @@ KEYWORDS = {
     "char": "TYPE",
     "string": "TYPE",
     "void": "TYPE",
+    "alignas": "ALIGNAS",
+    "alignof": "ALIGNOF",
+    "auto": "AUTO",
+    "const": "CONST",
+    "constexpr": "CONSTEXPR",
+    "do": "DO",
+    "double": "DOUBLE",
+    "else": "ELSE",
+    "enum": "ENUM",
+    "extern": "EXTERN",
+    "for": "FOR",
+    "goto": "GOTO",
+    "if": "IF",
+    "inline": "INLINE",
+    "long": "LONG",
+    "nullptr": "NULLPTR",
+    "register": "REGISTER",
+    "restrict": "RESTRICT",
+    "short": "SHORT",
+    "signed": "SIGNED",
+    "sizeof": "SIZEOF",
+    "static": "STATIC",
+    "static_assert": "STATIC_ASSERT",
+    "struct": "STRUCT",
+    "thread_local": "THREAD_LOCAL",
+    "typedef": "TYPEDEF",
+    "typeof": "TYPEOF",
+    "typeof_unqual": "TYPEOF_UNQUAL",
+    "union": "UNION",
+    "unsigned": "UNSIGNED",
+    "volatile": "VOLATILE",
+    "while": "WHILE",
+    "_Alignas": "ALIGNAS",
+    "_Alignof": "ALIGNOF",
+    "_Atomic": "ATOMIC",
+    "_Bool": "_BOOL",
+    "_Complex": "COMPLEX",
+    "_Decimal128": "DECIMAL128",
+    "_Decimal32": "DECIMAL32",
+    "_Decimal64": "DECIMAL64",
+    "_Generic": "GENERIC",
+    "_Imaginary": "IMAGINARY",
+    "_Noreturn": "NORETURN",
+    "_Static_assert": "STATIC_ASSERT",
+    "_Thread_local": "THREAD_LOCAL",
+    "_BitInt": "BITINT",
+    "asm": "ASM",
+    "fortran": "FORTRAN",
 }
 
 
@@ -112,7 +163,28 @@ class Lexer:
                 tokens.append(self._char())
                 continue
 
-            if ch in {";", ",", "(", ")", "{", "}", "+", "-", "*", "/", "%", "=", "<", ">", "!", ":", "?", "&", "|", "^"}:
+            if ch in {
+                ";",
+                ",",
+                "(",
+                ")",
+                "{",
+                "}",
+                "+",
+                "-",
+                "*",
+                "/",
+                "%",
+                "=",
+                "<",
+                ">",
+                "!",
+                ":",
+                "?",
+                "&",
+                "|",
+                "^",
+            }:
                 tokens.append(Token(ch, ch, start_line, start_col))
                 self._advance()
                 continue
@@ -212,7 +284,9 @@ class Lexer:
                 buf.append(mapping.get(esc, esc))
                 continue
             if ch == "\n":
-                raise LexError(f"Unterminated string literal at {start_line}:{start_col}")
+                raise LexError(
+                    f"Unterminated string literal at {start_line}:{start_col}"
+                )
             buf.append(self._advance())
         raise LexError(f"Unterminated string literal at {start_line}:{start_col}")
 

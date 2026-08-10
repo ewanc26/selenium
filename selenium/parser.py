@@ -8,36 +8,13 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from .ast import (
-    Assign,
-    Binary,
-    Block,
-    BreakStmt,
-    Call,
-    Case,
-    Cast,
-    ContinueStmt,
-    Expr,
-    ExprStmt,
-    ForStmt,
-    FunctionDecl,
-    IfStmt,
-    Literal,
-    Param,
-    PrintStmt,
-    Program,
-    ReturnStmt,
-    Stmt,
-    SwitchStmt,
-    Ternary,
-    TopLevel,
-    TypeRef,
-    Unary,
-    VarDecl,
-    VarRef,
-    WhileStmt,
-)
-from .lexer import Lexer, Token, LexError
+from .ast import (Assign, Binary, Block, BreakStmt, Call, Case, Cast,
+                  ContinueStmt, DoWhileStmt, Expr, ExprStmt, ForStmt,
+                  FunctionDecl, GotoStmt, IfStmt, Label, Literal, Param,
+                  PrintStmt, Program, ReturnStmt, SizeofExpr, Stmt, SwitchStmt,
+                  Ternary, TopLevel, TypeRef, Unary, VarDecl, VarRef,
+                  WhileStmt)
+from .lexer import Lexer, LexError, Token
 
 
 class ParseError(Exception):
@@ -137,6 +114,15 @@ class Parser:
             self._consume(";", "Expected ';' after if statement")
             return IfStmt(cond, then_block, else_block)
 
+        if self._match("UNDERTOW"):
+            body = self._block()
+            self._consume("TIDE", "Expected 'tide' after undertow body")
+            self._consume("(", "Expected '(' after tide")
+            cond = self._expression()
+            self._consume(")", "Expected ')' after condition")
+            self._consume(";", "Expected ';' after undertow statement")
+            return DoWhileStmt(body, cond)
+
         if self._match("TIDE"):
             self._consume("(", "Expected '(' after tide")
             cond = self._expression()
@@ -144,6 +130,19 @@ class Parser:
             body = self._block()
             self._consume(";", "Expected ';' after while statement")
             return WhileStmt(cond, body)
+
+        if self._match("DRIFT"):
+            label = self._consume("IDENT", "Expected label name after drift").value
+            self._consume(";", "Expected ';' after drift")
+            return GotoStmt(label)
+
+        if self._check("IDENT") and self._check_next(":"):
+            label_name = self._advance().value
+            self._consume(":", "Expected ':' after label name")
+            stmt = self._statement()
+            return Label(
+                label_name, Block([stmt]) if not isinstance(stmt, Block) else stmt
+            )
 
         if self._match("ORBIT"):
             self._consume("(", "Expected '(' after orbit")
@@ -337,13 +336,27 @@ class Parser:
             op = self._previous().kind
             expr = self._unary()
             return Unary(op, expr)
+        if self._match("MEASURE"):
+            if self._check("("):
+                self._advance()  # consume (
+                if self._check("TYPE"):
+                    tref = self._type_ref()
+                    self._consume(")", "Expected ')' in measure")
+                    return SizeofExpr(target_type=tref)
+                expr = self._expression()
+                self._consume(")", "Expected ')' in measure")
+                return SizeofExpr(expr=expr)
+            expr = self._unary()
+            return SizeofExpr(expr=expr)
         return self._call()
 
     def _call(self) -> Expr:
         expr = self._primary()
         while self._match("("):
             if not isinstance(expr, VarRef):
-                raise self._error(self._previous(), "Only named functions can be called")
+                raise self._error(
+                    self._previous(), "Only named functions can be called"
+                )
             args: List[Expr] = []
             if not self._check(")"):
                 while True:

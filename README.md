@@ -99,6 +99,11 @@ tide (condition) {
     ...
 };
 
+// do-while
+undertow {
+    ...
+} tide (condition);
+
 // for
 orbit (wax int i = 0; i < 10; i = i + 1) {
     ...
@@ -113,6 +118,26 @@ switch (expr) {
 ```
 
 `break` exits a loop or switch; `continue` skips to the next loop iteration.
+
+### Goto and labels
+
+```selenium
+drift skip;
+x = 42;
+skip: {
+    whisper x;
+};
+```
+
+### Sizeof
+
+```selenium
+wax int size = measure(int);
+whisper size;
+
+wax int arr = 10;
+whisper measure(arr);
+```
 
 ### Operators
 

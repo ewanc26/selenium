@@ -10,35 +10,12 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from .ast import (
-    Assign,
-    Binary,
-    Block,
-    BreakStmt,
-    Call,
-    Case,
-    Cast,
-    ContinueStmt,
-    Expr,
-    ExprStmt,
-    ForStmt,
-    FunctionDecl,
-    IfStmt,
-    Literal,
-    Param,
-    PrintStmt,
-    Program,
-    ReturnStmt,
-    Stmt,
-    SwitchStmt,
-    Ternary,
-    TopLevel,
-    TypeRef,
-    Unary,
-    VarDecl,
-    VarRef,
-    WhileStmt,
-)
+from .ast import (Assign, Binary, Block, BreakStmt, Call, Case, Cast,
+                  ContinueStmt, DoWhileStmt, Expr, ExprStmt, ForStmt,
+                  FunctionDecl, GotoStmt, IfStmt, Label, Literal, Param,
+                  PrintStmt, Program, ReturnStmt, SizeofExpr, Stmt, SwitchStmt,
+                  Ternary, TopLevel, TypeRef, Unary, VarDecl, VarRef,
+                  WhileStmt)
 
 
 class SemanticError(Exception):
@@ -67,7 +44,9 @@ class Symbol:
     return_type: Optional[TypeInfo] = None
 
 
-BUILTINS = {name: TypeInfo(name) for name in ("int", "float", "bool", "char", "string", "void")}
+BUILTINS = {
+    name: TypeInfo(name) for name in ("int", "float", "bool", "char", "string", "void")
+}
 
 
 class Scope:
@@ -102,6 +81,7 @@ class FunctionInfo:
 
 # ── Symbol tables ─────────────────────────────────────────────────
 
+
 class SemanticAnalyzer:
     """Two-pass type checker and name resolver.
 
@@ -116,6 +96,7 @@ class SemanticAnalyzer:
         self.expr_types: Dict[int, TypeInfo] = {}
         self.loop_depth = 0
         self.switch_depth = 0
+        self.used_builtins: set = set()
 
     def analyze(self, program: Program) -> Program:
         """Run both passes over the program. Mutates ``expr_types`` in place."""
@@ -168,7 +149,9 @@ class SemanticAnalyzer:
         if isinstance(stmt, VarDecl):
             value_type = self._infer_expr(stmt.value, scope)
             decl_type = self._type_of_ref(stmt.type)
-            self._require_same_type(decl_type, value_type, f"Type mismatch in declaration of {stmt.name}")
+            self._require_same_type(
+                decl_type, value_type, f"Type mismatch in declaration of {stmt.name}"
+            )
             scope.define(stmt.name, Symbol(decl_type, mutable=stmt.mutable))
             return
 
@@ -179,7 +162,9 @@ class SemanticAnalyzer:
             if not sym.mutable:
                 raise SemanticError(f"Cannot assign to immutable binding: {stmt.name}")
             value_type = self._infer_expr(stmt.value, scope)
-            self._require_same_type(sym.type, value_type, f"Type mismatch in assignment to {stmt.name}")
+            self._require_same_type(
+                sym.type, value_type, f"Type mismatch in assignment to {stmt.name}"
+            )
             return
 
         if isinstance(stmt, IfStmt):
@@ -196,6 +181,21 @@ class SemanticAnalyzer:
             self.loop_depth += 1
             self._analyze_block(stmt.body, scope, in_function)
             self.loop_depth -= 1
+            return
+
+        if isinstance(stmt, DoWhileStmt):
+            self.loop_depth += 1
+            self._analyze_block(stmt.body, scope, in_function)
+            self.loop_depth -= 1
+            cond_type = self._infer_expr(stmt.condition, scope)
+            self._require_type(cond_type, "bool", "Do-while condition must be bool")
+            return
+
+        if isinstance(stmt, GotoStmt):
+            return
+
+        if isinstance(stmt, Label):
+            self._analyze_block(stmt.body, scope, in_function)
             return
 
         if isinstance(stmt, ForStmt):
@@ -239,7 +239,9 @@ class SemanticAnalyzer:
                 self._require_type(self.current_return, "void", "Return value required")
             else:
                 value_type = self._infer_expr(stmt.value, scope)
-                self._require_same_type(self.current_return, value_type, "Return type mismatch")
+                self._require_same_type(
+                    self.current_return, value_type, "Return type mismatch"
+                )
             return
 
         if isinstance(stmt, BreakStmt):
@@ -253,7 +255,8 @@ class SemanticAnalyzer:
             return
 
         if isinstance(stmt, PrintStmt):
-            self._infer_expr(stmt.value, scope)
+            t = self._infer_expr(stmt.value, scope)
+            self.used_builtins.add(t.name)
             return
 
         if isinstance(stmt, ExprStmt):
@@ -299,7 +302,9 @@ class SemanticAnalyzer:
             self._require_type(cond_type, "bool", "Ternary condition must be bool")
             then_type = self._infer_expr(expr.then_expr, scope)
             else_type = self._infer_expr(expr.else_expr, scope)
-            self._require_same_type(then_type, else_type, "Ternary branches must have the same type")
+            self._require_same_type(
+                then_type, else_type, "Ternary branches must have the same type"
+            )
             self.expr_types[id(expr)] = then_type
             return then_type
         if isinstance(expr, Binary):
@@ -307,19 +312,25 @@ class SemanticAnalyzer:
             right = self._infer_expr(expr.right, scope)
             op = expr.op
             if op in {"+", "-", "*", "/", "%"}:
-                self._require_same_type(left, right, f"Operands of {op} must have the same type")
+                self._require_same_type(
+                    left, right, f"Operands of {op} must have the same type"
+                )
                 if not left.is_numeric:
                     raise SemanticError(f"Operands of {op} must be numeric")
                 self.expr_types[id(expr)] = left
                 return left
             if op in {"<", "<=", ">", ">="}:
-                self._require_same_type(left, right, f"Operands of {op} must have the same type")
+                self._require_same_type(
+                    left, right, f"Operands of {op} must have the same type"
+                )
                 if not left.is_numeric:
                     raise SemanticError(f"Operands of {op} must be numeric")
                 self.expr_types[id(expr)] = BUILTINS["bool"]
                 return BUILTINS["bool"]
             if op in {"==", "!="}:
-                self._require_same_type(left, right, f"Operands of {op} must have the same type")
+                self._require_same_type(
+                    left, right, f"Operands of {op} must have the same type"
+                )
                 self.expr_types[id(expr)] = BUILTINS["bool"]
                 return BUILTINS["bool"]
             if op in {"&&", "||"}:
@@ -335,9 +346,15 @@ class SemanticAnalyzer:
             raise SemanticError(f"Unsupported binary operator: {op}")
         if isinstance(expr, Call):
             if expr.callee in {"read_int", "read_float", "read_bool", "read_char"}:
+                self.used_builtins.add(expr.callee)
                 if len(expr.args) != 0:
                     raise SemanticError(f"Function {expr.callee} expects 0 arguments")
-                return_type = {"read_int": "int", "read_float": "float", "read_bool": "bool", "read_char": "char"}[expr.callee]
+                return_type = {
+                    "read_int": "int",
+                    "read_float": "float",
+                    "read_bool": "bool",
+                    "read_char": "char",
+                }[expr.callee]
                 self.expr_types[id(expr)] = BUILTINS[return_type]
                 return BUILTINS[return_type]
             if expr.callee not in self.functions:
@@ -349,7 +366,9 @@ class SemanticAnalyzer:
                 )
             for arg, expected in zip(expr.args, info.param_types):
                 actual = self._infer_expr(arg, scope)
-                self._require_same_type(expected, actual, f"Argument type mismatch in call to {expr.callee}")
+                self._require_same_type(
+                    expected, actual, f"Argument type mismatch in call to {expr.callee}"
+                )
             self.expr_types[id(expr)] = info.return_type
             return info.return_type
         if isinstance(expr, Cast):
@@ -374,6 +393,9 @@ class SemanticAnalyzer:
                 self.expr_types[id(expr)] = dst
                 return dst
             raise SemanticError(f"Unsupported cast from {src.name} to {dst.name}")
+        if isinstance(expr, SizeofExpr):
+            self.expr_types[id(expr)] = BUILTINS["int"]
+            return BUILTINS["int"]
         raise SemanticError(f"Unhandled expression type: {type(expr).__name__}")
 
     # ── Helpers ────────────────────────────────────────────────────

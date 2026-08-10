@@ -1,0 +1,7 @@
+// Do-while loop: executes at least once.
+
+wax int i = 0;
+undertow {
+    whisper i;
+    i = i + 1;
+} tide (i < 3);

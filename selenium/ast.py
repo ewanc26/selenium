@@ -67,6 +67,29 @@ class WhileStmt:
 
 
 @dataclass(slots=True)
+class DoWhileStmt:
+    body: Block
+    condition: "Expr"
+
+
+@dataclass(slots=True)
+class GotoStmt:
+    label: str
+
+
+@dataclass(slots=True)
+class Label:
+    name: str
+    body: Block
+
+
+@dataclass(slots=True)
+class SizeofExpr:
+    expr: Optional["Expr"] = None
+    target_type: Optional[TypeRef] = None
+
+
+@dataclass(slots=True)
 class Case:
     value: "Expr"
     body: Block
@@ -155,6 +178,39 @@ class Cast:
     expr: "Expr"
 
 
-Expr = Union[Literal, VarRef, Unary, Ternary, Binary, Call, Cast]
-Stmt = Union[VarDecl, Assign, IfStmt, WhileStmt, SwitchStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
-TopLevel = Union[VarDecl, FunctionDecl, Assign, IfStmt, WhileStmt, SwitchStmt, ForStmt, ReturnStmt, BreakStmt, ContinueStmt, PrintStmt, ExprStmt, Block]
+Expr = Union[Literal, VarRef, Unary, Ternary, Binary, Call, Cast, SizeofExpr]
+Stmt = Union[
+    VarDecl,
+    Assign,
+    IfStmt,
+    WhileStmt,
+    DoWhileStmt,
+    GotoStmt,
+    Label,
+    SwitchStmt,
+    ForStmt,
+    ReturnStmt,
+    BreakStmt,
+    ContinueStmt,
+    PrintStmt,
+    ExprStmt,
+    Block,
+]
+TopLevel = Union[
+    VarDecl,
+    FunctionDecl,
+    Assign,
+    IfStmt,
+    WhileStmt,
+    DoWhileStmt,
+    GotoStmt,
+    Label,
+    SwitchStmt,
+    ForStmt,
+    ReturnStmt,
+    BreakStmt,
+    ContinueStmt,
+    PrintStmt,
+    ExprStmt,
+    Block,
+]

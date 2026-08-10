@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 from .codegen_c import CCodeGenerator, CodegenContext
-from .parser import Parser, ParseError
+from .parser import ParseError, Parser
 from .sema import SemanticAnalyzer, SemanticError
 
 
@@ -27,12 +27,22 @@ def compile_source(source: str) -> str:
     program = parser.parse()
     analyzer = SemanticAnalyzer()
     analyzer.analyze(program)
-    generator = CCodeGenerator(program, CodegenContext(expr_types=analyzer.expr_types))
+    generator = CCodeGenerator(
+        program,
+        CodegenContext(
+            expr_types=analyzer.expr_types, used_builtins=analyzer.used_builtins
+        ),
+    )
     return generator.generate()
 
 
 def main(argv: list[str] | None = None) -> int:
     """CLI entry point. Parse args, compile, optionally compile C and run."""
+    if "--support" in (argv if argv is not None else sys.argv[1:]):
+        print("Support Selenium development:")
+        print("  Ko-fi: https://ko-fi.com/ewancroft")
+        print("  GitHub Sponsors: https://github.com/sponsors/ewanc26")
+        return 0
     ap = argparse.ArgumentParser(
         prog="seleniumc",
         description="Compile Selenium source to C (optionally compile & run)",
@@ -49,6 +59,11 @@ def main(argv: list[str] | None = None) -> int:
         default="gcc",
         metavar="CC",
         help="C compiler to use with --run (default: gcc)",
+    )
+    ap.add_argument(
+        "--support",
+        action="store_true",
+        help="Print sponsor links (Ko-fi: https://ko-fi.com/ewancroft · GitHub Sponsors: https://github.com/sponsors/ewanc26)",
     )
     args = ap.parse_args(argv)
 
@@ -86,7 +101,10 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 return 1
             if result.returncode != 0:
-                print(f"seleniumc: C compilation failed:\n{result.stderr}", file=sys.stderr)
+                print(
+                    f"seleniumc: C compilation failed:\n{result.stderr}",
+                    file=sys.stderr,
+                )
                 return 1
             run_result = subprocess.run([str(exe_file)])
             return run_result.returncode

@@ -1,0 +1,7 @@
+// sizeof (measure): get size of a type or variable.
+
+wax int size = measure(int);
+whisper size;
+
+wax int arr = 10;
+whisper measure(arr);
