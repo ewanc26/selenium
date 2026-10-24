@@ -99,8 +99,13 @@ class Parser:
     def _extern_decl(self) -> FunctionDecl:
         self._consume("RITUAL", "Expected 'ritual' after 'summon'")
         name, params, return_type = self._signature()
+        source = None
+        if self._match("FROM"):
+            source = self._consume(
+                "STRING", "Expected C source path after 'from'"
+            ).value
         self._consume(";", "Expected ';' after summoned function signature")
-        return FunctionDecl(name, params, return_type, None)
+        return FunctionDecl(name, params, return_type, None, source)
 
     def _signature(self):
         name = self._consume("IDENT", "Expected function name").value

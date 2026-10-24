@@ -26,6 +26,7 @@ KEYWORDS = {
     "seal": "SEAL",
     "ritual": "RITUAL",
     "summon": "SUMMON",
+    "from": "FROM",
     "eclipse": "ECLIPSE",
     "shadow": "SHADOW",
     "tide": "TIDE",

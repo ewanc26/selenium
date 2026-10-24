@@ -72,6 +72,8 @@ ritual add(int a, int b) -> int {
 ```
 
 Functions are defined with `ritual`, take typed parameters, and specify a return type after `->`.
+
+Declare a C function with `summon ritual name(type p) -> type;`. Add `from "file.c"` to compile and link a plain C source file, resolved relative to the `.sel` file.
 Recursion is supported. Functions may be called before they are defined.
 
 ### I/O

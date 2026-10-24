@@ -46,6 +46,7 @@ class FunctionDecl:
     params: List[Param]
     return_type: TypeRef
     body: Optional[Block]
+    source: Optional[str] = None
 
 
 @dataclass(slots=True)
