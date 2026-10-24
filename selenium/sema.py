@@ -10,12 +10,42 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
-from .ast import (Assign, Binary, Block, BreakStmt, Call, Case, Cast,
-                  ContinueStmt, DoWhileStmt, Expr, ExprStmt, ForStmt,
-                  FunctionDecl, GotoStmt, IfStmt, Label, Literal, Param,
-                  PrintStmt, Program, ReturnStmt, SizeofExpr, Stmt, SwitchStmt,
-                  Ternary, TopLevel, TypeRef, Unary, VarDecl, VarRef,
-                  WhileStmt)
+from .ast import (
+    ArrayLit,
+    Assign,
+    Binary,
+    Block,
+    BreakStmt,
+    Call,
+    Case,
+    Cast,
+    ContinueStmt,
+    DoWhileStmt,
+    Expr,
+    ExprStmt,
+    ForStmt,
+    FunctionDecl,
+    GotoStmt,
+    IfStmt,
+    Index,
+    IndexAssign,
+    Label,
+    Literal,
+    Param,
+    PrintStmt,
+    Program,
+    ReturnStmt,
+    SizeofExpr,
+    Stmt,
+    SwitchStmt,
+    Ternary,
+    TopLevel,
+    TypeRef,
+    Unary,
+    VarDecl,
+    VarRef,
+    WhileStmt,
+)
 
 
 class SemanticError(Exception):
@@ -25,10 +55,11 @@ class SemanticError(Exception):
 @dataclass(slots=True)
 class TypeInfo:
     name: str
+    length: Optional[int] = None
 
     @property
     def is_numeric(self) -> bool:
-        return self.name in {"int", "float"}
+        return self.length is None and self.name in {"int", "float"}
 
     @property
     def is_primitive(self) -> bool:
@@ -112,6 +143,13 @@ class SemanticAnalyzer:
             raise SemanticError(f"Duplicate function name: {decl.name}")
         param_types = [self._type_of_ref(p.type) for p in decl.params]
         return_type = self._type_of_ref(decl.return_type)
+        if (
+            any(t.length is not None for t in param_types)
+            or return_type.length is not None
+        ):
+            raise SemanticError(
+                f"Array parameters and return values are not supported: {decl.name}"
+            )
         self.functions[decl.name] = FunctionInfo(decl, param_types, return_type)
         self.globals.define(
             decl.name,
@@ -131,6 +169,8 @@ class SemanticAnalyzer:
         self._analyze_stmt(item, scope, in_function=False)
 
     def _analyze_function(self, decl: FunctionDecl) -> None:
+        if decl.body is None:
+            return
         info = self.functions[decl.name]
         fn_scope = Scope(self.globals)
         for param, ptype in zip(decl.params, info.param_types):
@@ -155,12 +195,34 @@ class SemanticAnalyzer:
             scope.define(stmt.name, Symbol(decl_type, mutable=stmt.mutable))
             return
 
+        if isinstance(stmt, IndexAssign):
+            if not isinstance(stmt.target, VarRef):
+                raise SemanticError("Only named arrays can be indexed")
+            sym = scope.lookup(stmt.target.name)
+            if sym.type.length is None:
+                raise SemanticError(f"Cannot index non-array: {stmt.target.name}")
+            if not sym.mutable:
+                raise SemanticError(
+                    f"Cannot assign to immutable array: {stmt.target.name}"
+                )
+            index_type = self._infer_expr(stmt.index, scope)
+            self._require_type(index_type, "int", "Array index must be int")
+            value_type = self._infer_expr(stmt.value, scope)
+            self._require_type(
+                value_type,
+                sym.type.name,
+                f"Type mismatch in assignment to {stmt.target.name}",
+            )
+            return
+
         if isinstance(stmt, Assign):
             sym = scope.lookup(stmt.name)
             if sym.is_function:
                 raise SemanticError(f"Cannot assign to function name: {stmt.name}")
             if not sym.mutable:
                 raise SemanticError(f"Cannot assign to immutable binding: {stmt.name}")
+            if sym.type.length is not None:
+                raise SemanticError(f"Cannot assign a whole array: {stmt.name}")
             value_type = self._infer_expr(stmt.value, scope)
             self._require_same_type(
                 sym.type, value_type, f"Type mismatch in assignment to {stmt.name}"
@@ -200,6 +262,10 @@ class SemanticAnalyzer:
 
         if isinstance(stmt, ForStmt):
             for_scope = Scope(scope)
+            if isinstance(stmt.init, VarDecl) and stmt.init.type.length is not None:
+                raise SemanticError(
+                    "Array declarations are not allowed in for initialisers"
+                )
             if stmt.init is not None:
                 self._analyze_stmt(stmt.init, for_scope, in_function)
             cond_type = self._infer_expr(stmt.condition, for_scope)
@@ -256,6 +322,8 @@ class SemanticAnalyzer:
 
         if isinstance(stmt, PrintStmt):
             t = self._infer_expr(stmt.value, scope)
+            if t.length is not None:
+                raise SemanticError("Cannot print an array")
             self.used_builtins.add(t.name)
             return
 
@@ -280,6 +348,33 @@ class SemanticAnalyzer:
             t = scope.lookup(expr.name).type
             self.expr_types[id(expr)] = t
             return t
+        if isinstance(expr, ArrayLit):
+            if not expr.elements:
+                raise SemanticError("Empty array literal")
+            element_types = [self._infer_expr(e, scope) for e in expr.elements]
+            first = element_types[0]
+            for other in element_types[1:]:
+                self._require_same_type(
+                    first, other, "Array elements must have the same type"
+                )
+            if (
+                not first.is_primitive
+                or first.name == "void"
+                or first.length is not None
+            ):
+                raise SemanticError("Array elements must be scalar values")
+            t = TypeInfo(first.name, len(expr.elements))
+            self.expr_types[id(expr)] = t
+            return t
+        if isinstance(expr, Index):
+            target = self._infer_expr(expr.target, scope)
+            if target.length is None:
+                raise SemanticError("Only arrays can be indexed")
+            index_type = self._infer_expr(expr.index, scope)
+            self._require_type(index_type, "int", "Array index must be int")
+            elem = BUILTINS[target.name]
+            self.expr_types[id(expr)] = elem
+            return elem
         if isinstance(expr, Unary):
             t = self._infer_expr(expr.expr, scope)
             if expr.op == "-":
@@ -311,6 +406,8 @@ class SemanticAnalyzer:
             left = self._infer_expr(expr.left, scope)
             right = self._infer_expr(expr.right, scope)
             op = expr.op
+            if left.length is not None or right.length is not None:
+                raise SemanticError(f"Operator {op} does not apply to arrays")
             if op in {"+", "-", "*", "/", "%"}:
                 self._require_same_type(
                     left, right, f"Operands of {op} must have the same type"
@@ -406,12 +503,16 @@ class SemanticAnalyzer:
     def _type_of_ref(self, tref: TypeRef) -> TypeInfo:
         if tref.name not in BUILTINS:
             raise SemanticError(f"Unknown type: {tref.name}")
-        return BUILTINS[tref.name]
+        if tref.length is None:
+            return BUILTINS[tref.name]
+        if tref.name == "void" or tref.length <= 0:
+            raise SemanticError(f"Invalid array type: {tref.name}[{tref.length}]")
+        return TypeInfo(tref.name, tref.length)
 
     def _require_type(self, actual: TypeInfo, expected_name: str, message: str) -> None:
-        if actual.name != expected_name:
+        if actual.name != expected_name or actual.length is not None:
             raise SemanticError(message)
 
     def _require_same_type(self, left: TypeInfo, right: TypeInfo, message: str) -> None:
-        if left.name != right.name:
+        if left.name != right.name or left.length != right.length:
             raise SemanticError(message)

@@ -8,12 +8,42 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from .ast import (Assign, Binary, Block, BreakStmt, Call, Case, Cast,
-                  ContinueStmt, DoWhileStmt, Expr, ExprStmt, ForStmt,
-                  FunctionDecl, GotoStmt, IfStmt, Label, Literal, Param,
-                  PrintStmt, Program, ReturnStmt, SizeofExpr, Stmt, SwitchStmt,
-                  Ternary, TopLevel, TypeRef, Unary, VarDecl, VarRef,
-                  WhileStmt)
+from .ast import (
+    ArrayLit,
+    Assign,
+    Binary,
+    Block,
+    BreakStmt,
+    Call,
+    Case,
+    Cast,
+    ContinueStmt,
+    DoWhileStmt,
+    Expr,
+    ExprStmt,
+    ForStmt,
+    FunctionDecl,
+    GotoStmt,
+    IfStmt,
+    Index,
+    IndexAssign,
+    Label,
+    Literal,
+    Param,
+    PrintStmt,
+    Program,
+    ReturnStmt,
+    SizeofExpr,
+    Stmt,
+    SwitchStmt,
+    Ternary,
+    TopLevel,
+    TypeRef,
+    Unary,
+    VarDecl,
+    VarRef,
+    WhileStmt,
+)
 from .lexer import Lexer, LexError, Token
 
 
@@ -52,6 +82,8 @@ class Parser:
     def _declaration_or_stmt(self) -> TopLevel:
         if self._match("RITUAL"):
             return self._function_decl()
+        if self._match("SUMMON"):
+            return self._extern_decl()
         if self._match("WAX"):
             return self._var_decl(mutable=True)
         if self._match("SEAL"):
@@ -59,6 +91,18 @@ class Parser:
         return self._statement()
 
     def _function_decl(self) -> FunctionDecl:
+        name, params, return_type = self._signature()
+        body = self._block()
+        self._consume(";", "Expected ';' after function body")
+        return FunctionDecl(name, params, return_type, body)
+
+    def _extern_decl(self) -> FunctionDecl:
+        self._consume("RITUAL", "Expected 'ritual' after 'summon'")
+        name, params, return_type = self._signature()
+        self._consume(";", "Expected ';' after summoned function signature")
+        return FunctionDecl(name, params, return_type, None)
+
+    def _signature(self):
         name = self._consume("IDENT", "Expected function name").value
         self._consume("(", "Expected '(' after function name")
         params: List[Param] = []
@@ -71,10 +115,7 @@ class Parser:
                     break
         self._consume(")", "Expected ')' after parameters")
         self._consume("->", "Expected '->' before return type")
-        return_type = self._type_ref()
-        body = self._block()
-        self._consume(";", "Expected ';' after function body")
-        return FunctionDecl(name, params, return_type, body)
+        return name, params, self._type_ref()
 
     def _for_init(self) -> Optional[Stmt]:
         if self._match("WAX"):
@@ -222,6 +263,14 @@ class Parser:
             return block
 
         expr = self._expression()
+        if self._match("="):
+            if not isinstance(expr, Index):
+                raise self._error(
+                    self._previous(), "Only array elements can be assigned with '='"
+                )
+            value = self._expression()
+            self._consume(";", "Expected ';' after assignment")
+            return IndexAssign(expr.target, expr.index, value)
         self._consume(";", "Expected ';' after expression")
         return ExprStmt(expr)
 
@@ -235,6 +284,10 @@ class Parser:
 
     def _type_ref(self) -> TypeRef:
         tok = self._consume("TYPE", "Expected type name")
+        if self._match("["):
+            length = self._consume("INT", "Expected array length").value
+            self._consume("]", "Expected ']' after array length")
+            return TypeRef(tok.value, length)
         return TypeRef(tok.value)
 
     # ── Expression parsing (precedence climbing) ────────────────────
@@ -352,20 +405,26 @@ class Parser:
 
     def _call(self) -> Expr:
         expr = self._primary()
-        while self._match("("):
-            if not isinstance(expr, VarRef):
-                raise self._error(
-                    self._previous(), "Only named functions can be called"
-                )
-            args: List[Expr] = []
-            if not self._check(")"):
-                while True:
-                    args.append(self._expression())
-                    if not self._match(","):
-                        break
-            self._consume(")", "Expected ')' after arguments")
-            expr = Call(expr.name, args)
-        return expr
+        while True:
+            if self._match("["):
+                index = self._expression()
+                self._consume("]", "Expected ']' after index")
+                expr = Index(expr, index)
+            elif self._match("("):
+                if not isinstance(expr, VarRef):
+                    raise self._error(
+                        self._previous(), "Only named functions can be called"
+                    )
+                args: List[Expr] = []
+                if not self._check(")"):
+                    while True:
+                        args.append(self._expression())
+                        if not self._match(","):
+                            break
+                self._consume(")", "Expected ')' after arguments")
+                expr = Call(expr.name, args)
+            else:
+                return expr
 
     def _primary(self) -> Expr:
         if self._match("INT"):
@@ -384,6 +443,15 @@ class Parser:
             expr = self._expression()
             self._consume(")", "Expected ')'")
             return expr
+        if self._match("["):
+            elements: List[Expr] = []
+            if not self._check("]"):
+                while True:
+                    elements.append(self._expression())
+                    if not self._match(","):
+                        break
+            self._consume("]", "Expected ']' after array elements")
+            return ArrayLit(elements)
         if self._match("CAST"):
             self._consume("(", "Expected '(' after cast")
             target = self._type_ref()

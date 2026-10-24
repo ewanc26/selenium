@@ -9,12 +9,42 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Dict, List
 
-from .ast import (Assign, Binary, Block, BreakStmt, Call, Case, Cast,
-                  ContinueStmt, DoWhileStmt, Expr, ExprStmt, ForStmt,
-                  FunctionDecl, GotoStmt, IfStmt, Label, Literal, Param,
-                  PrintStmt, Program, ReturnStmt, SizeofExpr, Stmt, SwitchStmt,
-                  Ternary, TopLevel, TypeRef, Unary, VarDecl, VarRef,
-                  WhileStmt)
+from .ast import (
+    ArrayLit,
+    Assign,
+    Binary,
+    Block,
+    BreakStmt,
+    Call,
+    Case,
+    Cast,
+    ContinueStmt,
+    DoWhileStmt,
+    Expr,
+    ExprStmt,
+    ForStmt,
+    FunctionDecl,
+    GotoStmt,
+    IfStmt,
+    Index,
+    IndexAssign,
+    Label,
+    Literal,
+    Param,
+    PrintStmt,
+    Program,
+    ReturnStmt,
+    SizeofExpr,
+    Stmt,
+    SwitchStmt,
+    Ternary,
+    TopLevel,
+    TypeRef,
+    Unary,
+    VarDecl,
+    VarRef,
+    WhileStmt,
+)
 from .sema import TypeInfo
 
 
@@ -49,6 +79,7 @@ class CCodeGenerator:
         functions = [
             item for item in self.program.items if isinstance(item, FunctionDecl)
         ]
+        functions.sort(key=lambda fn: fn.body is not None)
         globals_ = [item for item in self.program.items if isinstance(item, VarDecl)]
         statements = [
             item
@@ -116,6 +147,9 @@ class CCodeGenerator:
         params = ", ".join(f"{self._c_type(p.type.name)} {p.name}" for p in fn.params)
         if not params:
             params = "void"
+        if fn.body is None:
+            self._writeline(f"{ret} {fn.name}({params});")
+            return
         self._writeline(f"static {ret} {fn.name}({params}) {{")
         self.indent += 1
         self._emit_statements(fn.body.statements)
@@ -138,6 +172,10 @@ class CCodeGenerator:
             self._emit_vardecl(item)
         elif isinstance(item, Assign):
             self._writeline(f"{item.name} = {self._expr(item.value)};")
+        elif isinstance(item, IndexAssign):
+            self._writeline(
+                f"{self._expr(item.target)}[{self._expr(item.index, parens=False)}] = {self._expr(item.value)};"
+            )
         elif isinstance(item, IfStmt):
             self._emit_if(item)
         elif isinstance(item, WhileStmt):
@@ -251,17 +289,21 @@ class CCodeGenerator:
         self._writeline("}")
 
     def _emit_global_var(self, decl: VarDecl) -> None:
-        ctype = self._c_type(decl.type.name)
-        qualifier = (
-            "const " if not decl.mutable and not ctype.startswith("const ") else ""
-        )
-        self._writeline(f"{qualifier}{ctype} {decl.name} = {self._expr(decl.value)};")
+        self._emit_declaration(decl)
 
     def _emit_vardecl(self, decl: VarDecl) -> None:
+        self._emit_declaration(decl)
+
+    def _emit_declaration(self, decl: VarDecl) -> None:
         ctype = self._c_type(decl.type.name)
         qualifier = (
             "const " if not decl.mutable and not ctype.startswith("const ") else ""
         )
+        if decl.type.length is not None:
+            self._writeline(
+                f"{qualifier}{ctype} {decl.name}[{decl.type.length}] = {self._expr(decl.value)};"
+            )
+            return
         self._writeline(f"{qualifier}{ctype} {decl.name} = {self._expr(decl.value)};")
 
     def _emit_print(self, expr: Expr) -> None:
@@ -293,6 +335,14 @@ class CCodeGenerator:
             return str(expr.value)
         if isinstance(expr, VarRef):
             return expr.name
+        if isinstance(expr, ArrayLit):
+            return (
+                "{"
+                + ", ".join(self._expr(e, parens=False) for e in expr.elements)
+                + "}"
+            )
+        if isinstance(expr, Index):
+            return f"{self._expr(expr.target)}[{self._expr(expr.index, parens=False)}]"
         if isinstance(expr, Cast):
             target = self._c_type(expr.target_type.name)
             return f"(({target})({self._expr(expr.expr)}))"

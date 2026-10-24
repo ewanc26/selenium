@@ -1,0 +1,2 @@
+summon ritual scale(int n) -> int;
+whisper scale(7);
