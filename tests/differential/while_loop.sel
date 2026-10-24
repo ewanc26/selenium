@@ -1,0 +1,5 @@
+wax int i = 0;
+tide (i < 3) {
+    whisper i;
+    i = i + 1;
+};

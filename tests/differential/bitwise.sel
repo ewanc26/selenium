@@ -1,0 +1,5 @@
+whisper 12 & 10;
+whisper 12 | 10;
+whisper 12 ^ 10;
+whisper 1 << 4;
+whisper 16 >> 2;

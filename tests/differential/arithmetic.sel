@@ -1,0 +1,6 @@
+whisper 7 + 2;
+whisper 7 - 2;
+whisper 7 * 2;
+whisper 7 / 2;
+whisper 7 % 2;
+whisper 0 - 3 % 2;

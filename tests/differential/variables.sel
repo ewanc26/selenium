@@ -1,0 +1,5 @@
+wax int x = 5;
+seal int y = 10;
+x = x + y;
+whisper x;
+whisper y;

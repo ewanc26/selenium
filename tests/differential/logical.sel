@@ -1,0 +1,6 @@
+whisper true && false;
+whisper true || false;
+whisper !true;
+whisper 3 < 4;
+whisper 4 == 4;
+whisper 4 != 4;

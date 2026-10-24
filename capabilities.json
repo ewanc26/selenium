@@ -8,7 +8,7 @@
       "cells": {
         "plainspeak": {"status": "implemented", "tests": ["tests/differential/types_boolean.eng", "tests/differential/control_while.eng"]},
         "numlang": {"status": "partial", "note": "all values are doubles; comparisons and logic yield 1.0/0.0, no integer type"},
-        "selenium": {"status": "partial", "note": "int and bool exist; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/logical.sel", "tests/differential/arithmetic.sel"]},
         "sigi": {"status": "partial", "note": "all values are doubles; no boolean type"}
       }
     },
@@ -18,7 +18,7 @@
       "cells": {
         "plainspeak": {"status": "partial", "note": "operator differential cases exist only in the pending set"},
         "numlang": {"status": "partial", "note": "full operator set; no differential test"},
-        "selenium": {"status": "partial", "note": "full operator set; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/arithmetic.sel", "tests/differential/bitwise.sel", "tests/differential/logical.sel"]},
         "sigi": {"status": "missing", "note": "no bitwise, shift, or && / || operators"}
       }
     },
@@ -28,7 +28,7 @@
       "cells": {
         "plainspeak": {"status": "implemented", "tests": ["tests/differential/control_while.eng"]},
         "numlang": {"status": "partial", "note": "100 numbered slots; no differential test"},
-        "selenium": {"status": "partial", "note": "wax/seal variables; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/variables.sel"]},
         "sigi": {"status": "partial", "note": "numbered and named variables; no differential test"}
       }
     },
@@ -38,7 +38,7 @@
       "cells": {
         "plainspeak": {"status": "implemented", "tests": ["tests/differential/control_if_else.eng"]},
         "numlang": {"status": "partial", "note": "IF/ELSE; no differential test"},
-        "selenium": {"status": "partial", "note": "eclipse/shadow; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/if_else.sel"]},
         "sigi": {"status": "partial", "note": "{then ; else}; no differential test"}
       }
     },
@@ -48,7 +48,7 @@
       "cells": {
         "plainspeak": {"status": "implemented", "tests": ["tests/differential/control_while.eng", "tests/differential/control_for.eng"]},
         "numlang": {"status": "partial", "note": "WHILE and REPEAT; no differential test"},
-        "selenium": {"status": "partial", "note": "tide and orbit; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/while_loop.sel", "tests/differential/for_loop.sel"]},
         "sigi": {"status": "missing", "note": "WHILE only; no for loop"}
       }
     },
@@ -58,7 +58,7 @@
       "cells": {
         "plainspeak": {"status": "implemented", "tests": ["tests/differential/return_paths.eng"]},
         "numlang": {"status": "partial", "note": "stack-based calling convention; no differential test"},
-        "selenium": {"status": "partial", "note": "typed parameters and return; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/functions.sel"]},
         "sigi": {"status": "partial", "note": "numbered and named functions via the stack; no differential test"}
       }
     },
@@ -78,7 +78,7 @@
       "cells": {
         "plainspeak": {"status": "partial", "note": "no differential test"},
         "numlang": {"status": "partial", "note": "string literals print via putchar; no differential test"},
-        "selenium": {"status": "partial", "note": "string literals print; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/strings.sel"]},
         "sigi": {"status": "partial", "note": "string literals print; no differential test"}
       }
     },
@@ -88,7 +88,7 @@
       "cells": {
         "plainspeak": {"status": "implemented", "tests": ["tests/differential/control_while.eng"]},
         "numlang": {"status": "partial", "note": "print and character output; no differential test"},
-        "selenium": {"status": "partial", "note": "whisper; no differential test"},
+        "selenium": {"status": "implemented", "tests": ["tests/differential/console.sel"]},
         "sigi": {"status": "partial", "note": "PRINT and PRINTC; no differential test"}
       }
     },
