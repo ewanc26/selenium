@@ -1,0 +1,8 @@
+ritual twice(int n) -> int {
+    return n * 2;
+};
+ritual square(int n) -> int {
+    return n * n;
+};
+whisper twice(3);
+whisper square(4);

@@ -1,0 +1,10 @@
+eclipse (1 < 2) {
+    whisper 7;
+} shadow {
+    whisper 8;
+};
+eclipse (2 < 1) {
+    whisper 9;
+} shadow {
+    whisper 10;
+};
