@@ -23,14 +23,32 @@ def run(cmd, **kwargs):
     return subprocess.run(cmd, capture_output=True, text=True, timeout=60, **kwargs)
 
 
+def link_sources(source: pathlib.Path) -> list[str]:
+    link_file = source.with_suffix(".link")
+    if not link_file.exists():
+        return []
+    return [str(HERE / line) for line in link_file.read_text().split() if line]
+
+
 def check(source: pathlib.Path, cc: str, tmp: pathlib.Path) -> bool:
+    links = link_sources(source)
+    link_args = [arg for path in links for arg in ("--link", path)]
     sl = run(
-        [sys.executable, "-m", "selenium.main", str(source), "--run", "--cc", cc],
+        [
+            sys.executable,
+            "-m",
+            "selenium.main",
+            str(source),
+            "--run",
+            "--cc",
+            cc,
+            *link_args,
+        ],
         cwd=ROOT,
     )
     c_src = source.with_suffix(".c")
     c_bin = tmp / f"{source.stem}_ref"
-    build = run([cc, *C_FLAGS, str(c_src), "-o", str(c_bin)])
+    build = run([cc, *C_FLAGS, str(c_src), *links, "-o", str(c_bin)])
     if build.returncode != 0:
         print(f"FAIL {source.stem}: C reference did not build\n{build.stderr}")
         return False

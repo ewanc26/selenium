@@ -61,6 +61,13 @@ def main(argv: list[str] | None = None) -> int:
         help="C compiler to use with --run (default: gcc)",
     )
     ap.add_argument(
+        "--link",
+        action="append",
+        default=[],
+        metavar="FILE",
+        help="Extra C source file to compile and link with --run (repeatable)",
+    )
+    ap.add_argument(
         "--support",
         action="store_true",
         help="Print sponsor links (Ko-fi: https://ko-fi.com/ewancroft · GitHub Sponsors: https://github.com/sponsors/ewanc26)",
@@ -90,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
             c_file.write_text(c_code, encoding="utf-8")
             try:
                 result = subprocess.run(
-                    [args.cc, str(c_file), "-o", str(exe_file), "-lm"],
+                    [args.cc, str(c_file), *args.link, "-o", str(exe_file), "-lm"],
                     capture_output=True,
                     text=True,
                 )

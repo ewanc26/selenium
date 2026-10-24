@@ -13,6 +13,7 @@ from typing import List, Optional, Union
 @dataclass(slots=True)
 class TypeRef:
     name: str
+    length: Optional[int] = None
 
 
 @dataclass(slots=True)
@@ -44,7 +45,7 @@ class FunctionDecl:
     name: str
     params: List[Param]
     return_type: TypeRef
-    body: Block
+    body: Optional[Block]
 
 
 @dataclass(slots=True)
@@ -173,12 +174,32 @@ class Call:
 
 
 @dataclass(slots=True)
+class ArrayLit:
+    elements: List["Expr"]
+
+
+@dataclass(slots=True)
+class Index:
+    target: "Expr"
+    index: "Expr"
+
+
+@dataclass(slots=True)
+class IndexAssign:
+    target: "Expr"
+    index: "Expr"
+    value: "Expr"
+
+
+@dataclass(slots=True)
 class Cast:
     target_type: TypeRef
     expr: "Expr"
 
 
-Expr = Union[Literal, VarRef, Unary, Ternary, Binary, Call, Cast, SizeofExpr]
+Expr = Union[
+    Literal, VarRef, Unary, Ternary, Binary, Call, Cast, SizeofExpr, ArrayLit, Index
+]
 Stmt = Union[
     VarDecl,
     Assign,
@@ -194,6 +215,7 @@ Stmt = Union[
     ContinueStmt,
     PrintStmt,
     ExprStmt,
+    IndexAssign,
     Block,
 ]
 TopLevel = Union[
@@ -212,5 +234,6 @@ TopLevel = Union[
     ContinueStmt,
     PrintStmt,
     ExprStmt,
+    IndexAssign,
     Block,
 ]

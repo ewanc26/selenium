@@ -1,0 +1,12 @@
+wax int[4] xs = [3, 1, 4, 1];
+xs[2] = 9;
+wax int total = 0;
+wax int i = 0;
+tide (i < 4) {
+    total = total + xs[i];
+    i = i + 1;
+};
+whisper total;
+whisper xs[2];
+seal bool[2] flags = [true, false];
+whisper flags[1];

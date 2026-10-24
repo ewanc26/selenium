@@ -11,3 +11,6 @@ authors = [{name = "ewanc26"}]
 
 [project.scripts]
 seleniumc = "selenium.main:main"
+
+[tool.isort]
+profile = "black"

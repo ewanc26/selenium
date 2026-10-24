@@ -193,8 +193,10 @@
           "note": "no array type"
         },
         "selenium": {
-          "status": "missing",
-          "note": "no array type"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/arrays.sel"
+          ]
         },
         "sigi": {
           "status": "partial",
@@ -269,8 +271,10 @@
           "note": "no C interop"
         },
         "selenium": {
-          "status": "missing",
-          "note": "no C interop"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/ffi_call.sel"
+          ]
         },
         "sigi": {
           "status": "missing",

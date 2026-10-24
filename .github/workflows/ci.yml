@@ -22,4 +22,4 @@ jobs:
       - name: Differential tests
         run: python tests/differential/run_differential.py --cc clang
       - name: Capability matrix
-        run: python scripts/check_capabilities.py
+        run: python scripts/check_capabilities.py --language selenium --require-complete
