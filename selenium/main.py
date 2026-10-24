@@ -12,6 +12,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+from .ast import FunctionDecl
 from .codegen_c import CCodeGenerator, CodegenContext
 from .parser import ParseError, Parser
 from .sema import SemanticAnalyzer, SemanticError
@@ -21,8 +22,11 @@ class CompileError(Exception):
     """Raised on failures that fall outside parse or semantic errors."""
 
 
-def compile_source(source: str) -> str:
-    """Full compilation pipeline: parse, type-check, emit C."""
+def compile_source(source: str) -> tuple[str, list[str]]:
+    """Full compilation pipeline: parse, type-check, emit C.
+
+    Returns the C text and the C source files named by ``summon ... from``.
+    """
     parser = Parser.from_source(source)
     program = parser.parse()
     analyzer = SemanticAnalyzer()
@@ -33,7 +37,12 @@ def compile_source(source: str) -> str:
             expr_types=analyzer.expr_types, used_builtins=analyzer.used_builtins
         ),
     )
-    return generator.generate()
+    sources = [
+        item.source
+        for item in program.items
+        if isinstance(item, FunctionDecl) and item.source is not None
+    ]
+    return generator.generate(), sources
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -61,13 +70,6 @@ def main(argv: list[str] | None = None) -> int:
         help="C compiler to use with --run (default: gcc)",
     )
     ap.add_argument(
-        "--link",
-        action="append",
-        default=[],
-        metavar="FILE",
-        help="Extra C source file to compile and link with --run (repeatable)",
-    )
-    ap.add_argument(
         "--support",
         action="store_true",
         help="Print sponsor links (Ko-fi: https://ko-fi.com/ewancroft · GitHub Sponsors: https://github.com/sponsors/ewanc26)",
@@ -81,7 +83,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         source = input_path.read_text(encoding="utf-8")
-        c_code = compile_source(source)
+        c_code, sources = compile_source(source)
     except OSError as exc:
         print(f"seleniumc: {exc}", file=sys.stderr)
         return 1
@@ -97,7 +99,14 @@ def main(argv: list[str] | None = None) -> int:
             c_file.write_text(c_code, encoding="utf-8")
             try:
                 result = subprocess.run(
-                    [args.cc, str(c_file), *args.link, "-o", str(exe_file), "-lm"],
+                    [
+                        args.cc,
+                        str(c_file),
+                        *(str(input_path.parent / src) for src in sources),
+                        "-o",
+                        str(exe_file),
+                        "-lm",
+                    ],
                     capture_output=True,
                     text=True,
                 )

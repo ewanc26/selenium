@@ -1,2 +1,2 @@
-summon ritual scale(int n) -> int;
+summon ritual scale(int n) -> int from "ffi_helper.c";
 whisper scale(7);
