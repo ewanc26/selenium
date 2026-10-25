@@ -15,6 +15,7 @@ private:
     [[noreturn]] void error(const std::string &message, int line, int col) const;
 
     std::vector<std::unordered_set<std::string>> scopes;
+    std::unordered_set<std::string> functions;
     int loopDepth = 0;
     int switchDepth = 0;
     bool inFunction = false;
