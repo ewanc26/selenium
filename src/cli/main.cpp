@@ -129,6 +129,16 @@ int main(int argc, char **argv) {
         SemanticAnalyzer sema;
         sema.analyze(program);
         std::string ccode = emitProgram(program);
+        std::ifstream runtime_file(SELENIUM_RUNTIME_C);
+        if (!runtime_file) {
+            throw std::runtime_error("cannot read Selenium runtime source: " +
+                                     std::string(SELENIUM_RUNTIME_C));
+        }
+        std::stringstream runtime_stream;
+        runtime_stream << runtime_file.rdbuf();
+        ccode += "\n/* Embedded Selenium runtime helpers. */\n";
+        ccode += runtime_stream.str();
+        ccode += "\n";
 
         if (!run) {
             std::ofstream out(output);
@@ -136,7 +146,7 @@ int main(int argc, char **argv) {
                 std::cerr << "seleniumc: cannot create output file: " << output << "\n";
                 return 1;
             }
-            out << ccode << "\n#include \"" << SELENIUM_RUNTIME_C << "\"\n";
+            out << ccode;
             if (!out) {
                 std::cerr << "seleniumc: failed while writing output file: " << output << "\n";
                 return 1;
@@ -153,7 +163,7 @@ int main(int argc, char **argv) {
                 std::cerr << "seleniumc: cannot create temporary C source\n";
                 return 1;
             }
-            generated << ccode << "\n#include \"" << SELENIUM_RUNTIME_C << "\"\n";
+            generated << ccode;
             if (!generated) {
                 std::cerr << "seleniumc: failed while writing temporary C source\n";
                 return 1;
