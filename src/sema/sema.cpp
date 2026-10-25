@@ -23,6 +23,14 @@ bool SemanticAnalyzer::declared(const std::string &name) const {
 void SemanticAnalyzer::analyze(Program &prog) {
     scopes.clear();
     scopes.emplace_back();
+    functions.clear();
+    // Collect all function declarations first so forward calls and recursion work.
+    for (const auto &item : prog.items) {
+        if (!item) continue;
+        if (const auto *fn = std::get_if<FunctionDeclStmt>(&item->node)) {
+            functions.insert(fn->name);
+        }
+    }
     loopDepth = 0;
     switchDepth = 0;
     inFunction = false;
@@ -151,6 +159,9 @@ void SemanticAnalyzer::analyzeExpr(std::shared_ptr<Expr> expr) {
         } else if constexpr (std::is_same_v<T, MemberExpr>) {
             analyzeExpr(node.base);
         } else if constexpr (std::is_same_v<T, CallExpr>) {
+            if (functions.find(node.name) == functions.end()) {
+                error("call to undeclared function '" + node.name + "'", expr->line, expr->col);
+            }
             for (const auto &arg : node.args) analyzeExpr(arg);
         } else if constexpr (std::is_same_v<T, CastExpr>) {
             analyzeExpr(node.expr);
