@@ -192,7 +192,7 @@ std::shared_ptr<Stmt> Parser::parseStatement() {
     if (check("WAX")) { advance(); return parseVarDecl(true); }
     if (check("SEAL")) { advance(); return parseVarDecl(false); }
     if (check("IF") || check("ECLIPSE")) {
-        bool isEclipse = check("ECLIPSE"); advance();
+        advance();
         expect("(", "expected (");
         auto cond = parseExpression();
         expect(")", "expected )");
