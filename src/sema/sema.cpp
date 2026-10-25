@@ -53,6 +53,7 @@ void SemanticAnalyzer::analyze(Program &prog) {
     loopDepth = 0;
     switchDepth = 0;
     inFunction = false;
+    currentReturnType.reset();
     for (const auto &item : prog.items) analyzeStmt(item);
 }
 
@@ -86,6 +87,12 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
             analyzeExpr(node.expr);
         } else if constexpr (std::is_same_v<T, ReturnStmt>) {
             if (!inFunction) error("return outside a function", stmt->line, stmt->col);
+            if (currentReturnType && currentReturnType->kind == TypeKind::Void && node.value) {
+                error("void function cannot return a value", stmt->line, stmt->col);
+            }
+            if (currentReturnType && currentReturnType->kind != TypeKind::Void && !node.value) {
+                error("non-void function must return a value", stmt->line, stmt->col);
+            }
             analyzeExpr(node.value);
         } else if constexpr (std::is_same_v<T, BreakStmt>) {
             if (loopDepth == 0 && switchDepth == 0) {
@@ -138,9 +145,11 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
         } else if constexpr (std::is_same_v<T, FunctionDeclStmt>) {
             if (!node.body) return;
             const bool previousFunction = inFunction;
+            const auto previousReturnType = currentReturnType;
             const int previousLoopDepth = loopDepth;
             const int previousSwitchDepth = switchDepth;
             inFunction = true;
+            currentReturnType = node.retType;
             loopDepth = 0;
             switchDepth = 0;
             scopes.emplace_back();
@@ -153,6 +162,7 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
             analyzeBlock(node.body, false);
             scopes.pop_back();
             inFunction = previousFunction;
+            currentReturnType = previousReturnType;
             loopDepth = previousLoopDepth;
             switchDepth = previousSwitchDepth;
         } else {
