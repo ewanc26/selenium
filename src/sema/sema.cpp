@@ -32,7 +32,7 @@ void SemanticAnalyzer::analyze(Program &prog) {
         if (!item) continue;
         if (const auto *global = std::get_if<VarDeclStmt>(&item->node)) {
             if (!scopes.front().insert(global->name).second) {
-                error("redeclaration of global variable '" + global->name + "'", item->line, item->col);
+                error("redeclaration of variable '" + global->name + "'", item->line, item->col);
             }
             predeclaredGlobals.insert(global->name);
         } else if (const auto *enumeration = std::get_if<EnumDeclStmt>(&item->node)) {
