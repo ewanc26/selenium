@@ -37,6 +37,12 @@ def main() -> int:
         if result.stdout != "Hello, World!\n":
             raise AssertionError(f"unexpected hello-world output: {result.stdout!r}")
 
+        numeric = temp / "numeric.sel"
+        numeric.write_text("whisper 42;", encoding="utf-8")
+        result = run([compiler, str(numeric), "--run", "--cc", str(wrapper)])
+        if result.stdout != "42\n":
+            raise AssertionError(f"unexpected numeric output: {result.stdout!r}")
+
         output = temp / "generated output with spaces.c"
         run([compiler, example, "-o", str(output)])
         generated = output.read_text(encoding="utf-8")
