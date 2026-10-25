@@ -1,4 +1,6 @@
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_string.hpp>
+#include <string>
 #include "../../src/lexer/tokenizer.h"
 #include "../../src/parser/parser.h"
 #include "../../src/sema/sema.h"
