@@ -3,7 +3,8 @@
 #include "../../src/parser/parser.h"
 
 TEST_CASE("parser hello") {
-    Tokenizer t("whisper \"Hello, World!\";");
+    const std::string source = "whisper \"Hello, World!\";";
+    Tokenizer t(source);
     auto toks = t.tokenize();
     REQUIRE(toks.size() == 4);
     REQUIRE(toks[0].kind == "WHISPER");
