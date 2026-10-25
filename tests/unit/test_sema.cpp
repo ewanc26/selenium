@@ -62,6 +62,24 @@ TEST_CASE("sema rejects duplicate function parameters") {
     REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("duplicate parameter 'value'"));
 }
 
+TEST_CASE("sema rejects calls to undeclared functions") {
+    auto program = parse_source("missing(1);");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("call to undeclared function 'missing'"));
+}
+
+TEST_CASE("sema accepts calls to functions declared later") {
+    auto program = parse_source("sample(1); ritual sample(int value) -> int { return value; }");
+    SemanticAnalyzer sema;
+    REQUIRE_NOTHROW(sema.analyze(program));
+}
+
+TEST_CASE("sema accepts recursive function calls") {
+    auto program = parse_source("ritual count(int value) -> int { if (value) { return count(value - 1); } return 0; }");
+    SemanticAnalyzer sema;
+    REQUIRE_NOTHROW(sema.analyze(program));
+}
+
 TEST_CASE("sema rejects a local variable after its scope ends") {
     auto program = parse_source("eclipse (true) { wax int local = 1; } whisper local;");
     SemanticAnalyzer sema;
