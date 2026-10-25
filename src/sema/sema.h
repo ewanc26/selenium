@@ -20,6 +20,7 @@ private:
     std::unordered_set<std::string> functions;
     std::unordered_map<std::string, std::size_t> functionArities;
     std::unordered_set<std::string> predeclaredGlobals;
+    std::unordered_set<std::string> predeclaredEnumerators;
     int loopDepth = 0;
     int switchDepth = 0;
     bool inFunction = false;
