@@ -44,6 +44,24 @@ TEST_CASE("sema permits break inside a loop") {
     REQUIRE_NOTHROW(sema.analyze(program));
 }
 
+TEST_CASE("sema rejects continue outside a loop") {
+    auto program = parse_source("continue;");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("continue outside a loop"));
+}
+
+TEST_CASE("sema rejects return outside a function") {
+    auto program = parse_source("return 1;");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("return outside a function"));
+}
+
+TEST_CASE("sema rejects duplicate function parameters") {
+    auto program = parse_source("ritual sample(int value, int value) -> int { return value; }");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("duplicate parameter 'value'"));
+}
+
 TEST_CASE("sema rejects a local variable after its scope ends") {
     auto program = parse_source("eclipse (true) { wax int local = 1; } whisper local;");
     SemanticAnalyzer sema;
