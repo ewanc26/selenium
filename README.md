@@ -236,7 +236,7 @@ tests/differential/       – .sel programs paired with C reference programs
 examples/                 – sample .sel programs
 ```
 
-The documented C++ build target is `build/seleniumc`. The runtime helpers are checked in, but the C++ migration still has gaps: semantic analysis now checks basic variable scopes and loop-control context, but type compatibility and several other semantic rules remain incomplete; the full differential suite has not been ported to the C++ executable. See [the C++ compiler status](docs/cpp-compiler-status.md) and [issue #14](https://github.com/ewanc26/selenium/issues/14).
+The documented C++ build target is `build/seleniumc`. The runtime helpers are checked in, but the C++ migration still has gaps: semantic analysis now checks basic variable scopes, loop-control context, undeclared function calls, and call arity, but type compatibility and several other semantic rules remain incomplete; the full differential suite has not been ported to the C++ executable. See [the C++ compiler status](docs/cpp-compiler-status.md) and [issue #14](https://github.com/ewanc26/selenium/issues/14).
 
 ## Notes
 
