@@ -1,0 +1,9 @@
+wax int n = 0;
+drift skip;
+whisper 99;
+skip:
+n = n + 1;
+top:
+n = n + 1;
+eclipse (n < 5) { drift top; };
+whisper n;

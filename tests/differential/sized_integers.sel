@@ -1,0 +1,14 @@
+wax schar a = 100;
+wax uchar b = 200;
+wax short c = 30000;
+wax ushort d = 60000;
+wax uint e = 4000000000;
+wax long f = 1234567890123;
+wax ulong g = 9000000000000000000;
+whisper cast(int, a);
+whisper cast(int, b);
+whisper cast(int, c);
+whisper cast(int, d);
+whisper e;
+whisper f;
+whisper g;

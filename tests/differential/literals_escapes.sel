@@ -1,0 +1,5 @@
+whisper "tab:\there";
+whisper "quote:\"q\"";
+whisper "back\\slash";
+whisper "hex:\x41";
+whisper "oct:\101";

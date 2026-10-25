@@ -1,0 +1,5 @@
+wax int i = 0;
+wax int j = 10;
+wax int v = (++i, ++j, i + j);
+whisper v;
+whisper i;

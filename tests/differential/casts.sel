@@ -1,0 +1,7 @@
+wax int a = 7;
+wax int b = 2;
+whisper cast(float, a) / cast(float, b);
+whisper cast(int, 3.9);
+whisper cast(char, 66);
+whisper cast(int, 'A') + 1;
+whisper cast(bool, 5);

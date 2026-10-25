@@ -1,0 +1,5 @@
+wax int[2][3] grid = [[1, 2, 3], [4, 5, 6]];
+grid[1][2] = 60;
+whisper grid[1][2];
+whisper grid[0][1];
+whisper measure(grid);

@@ -6,14 +6,30 @@ generator consume them by isinstance-dispatch."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import List, Optional, Union
+from dataclasses import dataclass, field
+from typing import List, Optional, Tuple, Union
+
+
+@dataclass(slots=True)
+class FnTypeRef:
+    """Function type written as ``ritual(params) -> ret``."""
+
+    params: List["TypeRef"]
+    ret: "TypeRef"
 
 
 @dataclass(slots=True)
 class TypeRef:
+    """A type as written in source.
+
+    ``name`` is a builtin type, a struct/union/enum tag or an alias. ``pointer``
+    counts ``*`` suffixes and ``dims`` lists ``[N]`` suffixes outermost first.
+    ``fn`` is set for function types, whose name is ``fn``."""
+
     name: str
-    length: Optional[int] = None
+    pointer: int = 0
+    dims: List[int] = field(default_factory=list)
+    fn: Optional[FnTypeRef] = None
 
 
 @dataclass(slots=True)
@@ -38,6 +54,7 @@ class VarDecl:
     type: TypeRef
     name: str
     value: "Expr"
+    qualifiers: Tuple[str, ...] = ()
 
 
 @dataclass(slots=True)
@@ -50,8 +67,39 @@ class FunctionDecl:
 
 
 @dataclass(slots=True)
-class Assign:
+class StructDecl:
     name: str
+    fields: List[Param]
+
+
+@dataclass(slots=True)
+class UnionDecl:
+    name: str
+    fields: List[Param]
+
+
+@dataclass(slots=True)
+class EnumDecl:
+    name: str
+    enumerators: List[Tuple[str, Optional[int]]]
+
+
+@dataclass(slots=True)
+class AliasDecl:
+    name: str
+    target: TypeRef
+
+
+@dataclass(slots=True)
+class Assign:
+    target: "Expr"
+    value: "Expr"
+
+
+@dataclass(slots=True)
+class CompoundAssign:
+    target: "Expr"
+    op: str
     value: "Expr"
 
 
@@ -106,9 +154,9 @@ class SwitchStmt:
 
 @dataclass(slots=True)
 class ForStmt:
-    init: Optional["Stmt"]
+    init: Optional[object]
     condition: "Expr"
-    increment: Optional["Stmt"]
+    increment: Optional[object]
     body: Block
 
 
@@ -155,6 +203,12 @@ class Unary:
 
 
 @dataclass(slots=True)
+class Postfix:
+    op: str
+    expr: "Expr"
+
+
+@dataclass(slots=True)
 class Ternary:
     condition: "Expr"
     then_expr: "Expr"
@@ -170,12 +224,17 @@ class Binary:
 
 @dataclass(slots=True)
 class Call:
-    callee: str
+    callee: "Expr"
     args: List["Expr"]
 
 
 @dataclass(slots=True)
 class ArrayLit:
+    elements: List["Expr"]
+
+
+@dataclass(slots=True)
+class BraceLit:
     elements: List["Expr"]
 
 
@@ -186,10 +245,10 @@ class Index:
 
 
 @dataclass(slots=True)
-class IndexAssign:
+class Member:
     target: "Expr"
-    index: "Expr"
-    value: "Expr"
+    name: str
+    arrow: bool
 
 
 @dataclass(slots=True)
@@ -199,11 +258,24 @@ class Cast:
 
 
 Expr = Union[
-    Literal, VarRef, Unary, Ternary, Binary, Call, Cast, SizeofExpr, ArrayLit, Index
+    Literal,
+    VarRef,
+    Unary,
+    Postfix,
+    Ternary,
+    Binary,
+    Call,
+    Cast,
+    SizeofExpr,
+    ArrayLit,
+    BraceLit,
+    Index,
+    Member,
 ]
 Stmt = Union[
     VarDecl,
     Assign,
+    CompoundAssign,
     IfStmt,
     WhileStmt,
     DoWhileStmt,
@@ -216,25 +288,14 @@ Stmt = Union[
     ContinueStmt,
     PrintStmt,
     ExprStmt,
-    IndexAssign,
     Block,
 ]
 TopLevel = Union[
     VarDecl,
     FunctionDecl,
-    Assign,
-    IfStmt,
-    WhileStmt,
-    DoWhileStmt,
-    GotoStmt,
-    Label,
-    SwitchStmt,
-    ForStmt,
-    ReturnStmt,
-    BreakStmt,
-    ContinueStmt,
-    PrintStmt,
-    ExprStmt,
-    IndexAssign,
-    Block,
+    StructDecl,
+    UnionDecl,
+    EnumDecl,
+    AliasDecl,
+    Stmt,
 ]

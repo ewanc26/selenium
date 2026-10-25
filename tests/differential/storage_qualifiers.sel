@@ -1,0 +1,11 @@
+wax pinned int counter = 0;
+wax erratic int ticks = 5;
+ritual bump() -> int {
+    wax pinned int n = 0;
+    n = n + 1;
+    counter = counter + n;
+    return counter;
+};
+whisper bump();
+whisper bump();
+whisper ticks;

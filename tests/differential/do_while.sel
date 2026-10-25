@@ -1,0 +1,10 @@
+wax int n = 0;
+undertow {
+    n = n + 3;
+} tide (n < 10);
+whisper n;
+wax int k = 100;
+undertow {
+    k = k + 1;
+} tide (k < 0);
+whisper k;
