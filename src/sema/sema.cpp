@@ -26,6 +26,7 @@ void SemanticAnalyzer::analyze(Program &prog) {
     functions.clear();
     functionArities.clear();
     predeclaredGlobals.clear();
+    predeclaredEnumerators.clear();
     // Predeclare global variables and functions so forward references work.
     for (const auto &item : prog.items) {
         if (!item) continue;
@@ -39,6 +40,7 @@ void SemanticAnalyzer::analyze(Program &prog) {
                 if (!scopes.front().insert(entry.first).second) {
                     error("redeclaration of global identifier '" + entry.first + "'", item->line, item->col);
                 }
+                predeclaredEnumerators.insert(entry.first);
             }
         } else if (const auto *fn = std::get_if<FunctionDeclStmt>(&item->node)) {
             functions.insert(fn->name);
@@ -127,6 +129,7 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
         } else if constexpr (std::is_same_v<T, EnumDeclStmt>) {
             for (const auto &enumerator : node.enumerators) {
                 const auto &name = enumerator.first;
+                if (scopes.size() == 1 && predeclaredEnumerators.erase(name) != 0) continue;
                 if (scopes.back().find(name) != scopes.back().end()) {
                     error("redeclaration of identifier '" + name + "'", stmt->line, stmt->col);
                 }
