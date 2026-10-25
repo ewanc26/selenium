@@ -315,6 +315,7 @@ std::string emitProgram(const Program &prog) {
     // globals
     for (auto &it : others) {
         if (std::holds_alternative<VarDeclStmt>(it->node)) {
+            auto &v = std::get<VarDeclStmt>(it->node);
             ss << emitType(v.type) << " " << v.name;
             if (v.type->dims.size()) {
                 for (auto d : v.type->dims) { if (d>0) ss << "[" << d << "]"; else ss << "[]"; }
@@ -368,8 +369,7 @@ std::string emitProgram(const Program &prog) {
     ss << "int main() {\n";
     for (auto &it : others) {
         if (std::holds_alternative<VarDeclStmt>(it->node)) {
-            auto &v = std::get<VarDeclStmt>(it->node);
-            // only if not global? we put globals above; but need to handle - in our model globals become globals if top level
+            // Top-level variables were emitted as globals above.
             // for now skip duplicates? or emit
         } else if (std::holds_alternative<FunctionDeclStmt>(it->node)) continue;
         else if (std::holds_alternative<StructDeclStmt>(it->node) || std::holds_alternative<UnionDeclStmt>(it->node) ||
