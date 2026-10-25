@@ -1,7 +1,7 @@
 # Selenium compiler
 
 Selenium is a small esoteric language with a lunar / poetic surface and a strict, C-like core.
-It compiles to C via a Python compiler.
+It compiles to C via a C++ compiler.
 
 > 🧶 Also available on [Tangled](https://tangled.org/ewancroft.uk/selenium)
 
