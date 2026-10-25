@@ -24,11 +24,16 @@ void SemanticAnalyzer::analyze(Program &prog) {
     scopes.clear();
     scopes.emplace_back();
     functions.clear();
-    // Collect all function declarations first so forward calls and recursion work.
+    functionArities.clear();
+    // Collect declarations first so forward calls and recursion work.
     for (const auto &item : prog.items) {
         if (!item) continue;
         if (const auto *fn = std::get_if<FunctionDeclStmt>(&item->node)) {
             functions.insert(fn->name);
+            auto [it, inserted] = functionArities.emplace(fn->name, fn->params.size());
+            if (!inserted && it->second != fn->params.size()) {
+                error("conflicting parameter count for function '" + fn->name + "'", item->line, item->col);
+            }
         }
     }
     loopDepth = 0;
@@ -159,8 +164,13 @@ void SemanticAnalyzer::analyzeExpr(std::shared_ptr<Expr> expr) {
         } else if constexpr (std::is_same_v<T, MemberExpr>) {
             analyzeExpr(node.base);
         } else if constexpr (std::is_same_v<T, CallExpr>) {
-            if (functions.find(node.name) == functions.end()) {
+            auto arity = functionArities.find(node.name);
+            if (arity == functionArities.end()) {
                 error("call to undeclared function '" + node.name + "'", expr->line, expr->col);
+            }
+            if (arity->second != node.args.size()) {
+                error("function '" + node.name + "' expects " + std::to_string(arity->second) +
+                      " argument(s), got " + std::to_string(node.args.size()), expr->line, expr->col);
             }
             for (const auto &arg : node.args) analyzeExpr(arg);
         } else if constexpr (std::is_same_v<T, CastExpr>) {
