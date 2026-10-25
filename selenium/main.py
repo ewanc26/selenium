@@ -34,7 +34,9 @@ def compile_source(source: str) -> tuple[str, list[str]]:
     generator = CCodeGenerator(
         program,
         CodegenContext(
-            expr_types=analyzer.expr_types, used_builtins=analyzer.used_builtins
+            expr_types=analyzer.expr_types,
+            used_builtins=analyzer.used_builtins,
+            analyzer=analyzer,
         ),
     )
     sources = [

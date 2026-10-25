@@ -1,45 +1,51 @@
 """Recursive-descent parser for Selenium.
 
-Tokenises source via the lexer, then walks a Pratt-style
-precedence-climbing expression parser inside a statement-first
-top-down structure. Produces a Program AST."""
+Tokenises source via the lexer, then walks a precedence-climbing expression
+parser (C operator precedence) inside a statement-first top-down structure.
+Produces a Program AST."""
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Set
 
 from .ast import (
+    AliasDecl,
     ArrayLit,
     Assign,
     Binary,
     Block,
+    BraceLit,
     BreakStmt,
     Call,
     Case,
     Cast,
+    CompoundAssign,
     ContinueStmt,
     DoWhileStmt,
+    EnumDecl,
     Expr,
     ExprStmt,
+    FnTypeRef,
     ForStmt,
     FunctionDecl,
     GotoStmt,
     IfStmt,
     Index,
-    IndexAssign,
     Label,
     Literal,
+    Member,
     Param,
+    Postfix,
     PrintStmt,
     Program,
     ReturnStmt,
     SizeofExpr,
-    Stmt,
+    StructDecl,
     SwitchStmt,
     Ternary,
-    TopLevel,
     TypeRef,
     Unary,
+    UnionDecl,
     VarDecl,
     VarRef,
     WhileStmt,
@@ -51,18 +57,20 @@ class ParseError(Exception):
     """Raised on syntax errors with line/col context and expected token details."""
 
 
-TYPE_TOKENS = {"TYPE"}
+ASSIGN_OPS = {"+=", "-=", "*=", "/=", "%=", "&=", "|=", "^=", "<<=", ">>="}
 
 
 class Parser:
     """Recursive-descent parser over a token stream.
 
-    Expression parsing uses operator-precedence climbing (Pratt-style)
-    for correct associativity and precedence across 11 levels."""
+    Expression parsing follows C operator precedence. Type names introduced by
+    frame, fusion, phase and alias declarations are tracked so that they can be
+    used as types after they are declared."""
 
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
         self.i = 0
+        self.type_names: Set[str] = set()
 
     @classmethod
     def from_source(cls, source: str) -> "Parser":
@@ -72,23 +80,82 @@ class Parser:
     def parse(self) -> Program:
         """Parse the full token stream into a Program AST."""
 
-        items: List[TopLevel] = []
+        items: List[object] = []
         while not self._check("EOF"):
-            items.append(self._declaration_or_stmt())
+            items.append(self._declaration_or_stmt(top=True))
         return Program(items)
 
     # ── Top-level dispatch ────────────────────────────────────────────
 
-    def _declaration_or_stmt(self) -> TopLevel:
-        if self._match("RITUAL"):
-            return self._function_decl()
-        if self._match("SUMMON"):
+    def _declaration_or_stmt(self, top: bool = False):
+        if self._check("RITUAL") or self._check("SUMMON"):
+            if not top:
+                raise self._error(
+                    self._peek(), "Function declarations are only allowed at top level"
+                )
+            if self._match("RITUAL"):
+                return self._function_decl()
+            self._advance()  # SUMMON
             return self._extern_decl()
         if self._match("WAX"):
             return self._var_decl(mutable=True)
         if self._match("SEAL"):
             return self._var_decl(mutable=False)
+        if (
+            self._check("FRAME")
+            or self._check("FUSION")
+            or self._check("PHASE")
+            or self._check("ALIAS")
+        ):
+            if not top:
+                raise self._error(
+                    self._peek(), "Type declarations are only allowed at top level"
+                )
+            return self._type_decl()
         return self._statement()
+
+    def _type_decl(self):
+        kind = self._advance().kind
+        if kind == "ALIAS":
+            name = self._consume("IDENT", "Expected alias name").value
+            self._consume("=", "Expected '=' in alias declaration")
+            target = self._type_ref()
+            self._consume(";", "Expected ';' after alias declaration")
+            self.type_names.add(name)
+            return AliasDecl(name, target)
+        name = self._consume("IDENT", "Expected type name").value
+        self.type_names.add(name)
+        if kind == "PHASE":
+            self._consume("{", "Expected '{' after phase name")
+            enumerators = []
+            while not self._check("}"):
+                ename = self._consume("IDENT", "Expected enumerator name").value
+                value = None
+                if self._match("="):
+                    negative = self._match("-")
+                    value = self._consume(
+                        "INT", "Expected integer enumerator value"
+                    ).value
+                    if negative:
+                        value = -value
+                enumerators.append((ename, value))
+                if not self._match(","):
+                    break
+            self._consume("}", "Expected '}' after enumerators")
+            self._consume(";", "Expected ';' after phase declaration")
+            return EnumDecl(name, enumerators)
+        self._consume("{", "Expected '{' after type name")
+        fields: List[Param] = []
+        while not self._check("}"):
+            ftype = self._type_ref()
+            fname = self._consume("IDENT", "Expected field name").value
+            self._consume(";", "Expected ';' after field")
+            fields.append(Param(ftype, fname))
+        self._consume("}", "Expected '}' after fields")
+        self._consume(";", "Expected ';' after type declaration")
+        if kind == "FRAME":
+            return StructDecl(name, fields)
+        return UnionDecl(name, fields)
 
     def _function_decl(self) -> FunctionDecl:
         name, params, return_type = self._signature()
@@ -122,33 +189,44 @@ class Parser:
         self._consume("->", "Expected '->' before return type")
         return name, params, self._type_ref()
 
-    def _for_init(self) -> Optional[Stmt]:
+    def _for_init(self):
         if self._match("WAX"):
             return self._var_decl_no_semi(mutable=True)
         if self._match("SEAL"):
             return self._var_decl_no_semi(mutable=False)
         if not self._check(";"):
-            return self._statement()
+            return self._simple_statement()
         return None
 
+    def _qualifiers(self) -> tuple:
+        quals = []
+        while self._check("PINNED") or self._check("ERRATIC"):
+            quals.append(self._advance().value)
+        return tuple(quals)
+
     def _var_decl(self, mutable: bool) -> VarDecl:
+        quals = self._qualifiers()
         var_type = self._type_ref()
         name = self._consume("IDENT", "Expected variable name").value
         self._consume("=", "Expected '=' in declaration")
-        value = self._expression()
+        value = self._initializer()
         self._consume(";", "Expected ';' after declaration")
-        return VarDecl(mutable, var_type, name, value)
+        return VarDecl(mutable, var_type, name, value, quals)
 
     def _var_decl_no_semi(self, mutable: bool) -> VarDecl:
+        quals = self._qualifiers()
         var_type = self._type_ref()
         name = self._consume("IDENT", "Expected variable name").value
         self._consume("=", "Expected '=' in declaration")
-        value = self._expression()
-        return VarDecl(mutable, var_type, name, value)
+        value = self._initializer()
+        return VarDecl(mutable, var_type, name, value, quals)
+
+    def _initializer(self) -> Expr:
+        return self._expression()
 
     # ── Statement parsing ───────────────────────────────────────────
 
-    def _statement(self) -> Stmt:
+    def _statement(self):
         if self._match("ECLIPSE"):
             self._consume("(", "Expected '(' after eclipse")
             cond = self._expression()
@@ -198,13 +276,7 @@ class Parser:
             self._consume(";", "Expected ';' after condition")
             increment = None
             if not self._check(")"):
-                if self._check("IDENT") and self._check_next("="):
-                    name = self._advance().value
-                    self._advance()  # =
-                    value = self._expression()
-                    increment = Assign(name, value)
-                else:
-                    increment = ExprStmt(self._expression())
+                increment = self._simple_statement()
             self._consume(")", "Expected ')' after increment")
             body = self._block()
             self._consume(";", "Expected ';' after for statement")
@@ -255,47 +327,68 @@ class Parser:
             self._consume(";", "Expected ';' after whisper")
             return PrintStmt(value)
 
-        if self._check("IDENT") and self._check_next("="):
-            name = self._advance().value
-            self._advance()  # =
-            value = self._expression()
-            self._consume(";", "Expected ';' after assignment")
-            return Assign(name, value)
-
         if self._check("{"):
             block = self._block()
             self._consume(";", "Expected ';' after block")
             return block
 
+        stmt = self._simple_statement()
+        self._consume(";", "Expected ';' after statement")
+        return stmt
+
+    def _simple_statement(self):
+        """An expression, assignment or compound assignment, without the ';'."""
         expr = self._expression()
         if self._match("="):
-            if not isinstance(expr, Index):
-                raise self._error(
-                    self._previous(), "Only array elements can be assigned with '='"
-                )
             value = self._expression()
-            self._consume(";", "Expected ';' after assignment")
-            return IndexAssign(expr.target, expr.index, value)
-        self._consume(";", "Expected ';' after expression")
+            return Assign(expr, value)
+        for op in sorted(ASSIGN_OPS):
+            if self._match(op):
+                value = self._expression()
+                return CompoundAssign(expr, op[:-1], value)
         return ExprStmt(expr)
 
     def _block(self) -> Block:
         self._consume("{", "Expected '{' to start block")
-        statements: List[Stmt] = []
+        statements: List[object] = []
         while not self._check("}"):
             statements.append(self._declaration_or_stmt())
         self._consume("}", "Expected '}' after block")
         return Block(statements)
 
     def _type_ref(self) -> TypeRef:
-        tok = self._consume("TYPE", "Expected type name")
-        if self._match("["):
-            length = self._consume("INT", "Expected array length").value
+        if self._match("RITUAL"):
+            self._consume("(", "Expected '(' in function type")
+            params: List[TypeRef] = []
+            if not self._check(")"):
+                while True:
+                    params.append(self._type_ref())
+                    if not self._match(","):
+                        break
+            self._consume(")", "Expected ')' in function type")
+            self._consume("->", "Expected '->' in function type")
+            return TypeRef("fn", fn=FnTypeRef(params, self._type_ref()))
+        if self._check("TYPE"):
+            name = self._advance().value
+        elif self._check("IDENT") and self._peek().value in self.type_names:
+            name = self._advance().value
+        else:
+            raise self._error(self._peek(), "Expected type name")
+        pointer = 0
+        while self._match("*"):
+            pointer += 1
+        dims: List[int] = []
+        while self._match("["):
+            dims.append(self._consume("INT", "Expected array length").value)
             self._consume("]", "Expected ']' after array length")
-            return TypeRef(tok.value, length)
-        return TypeRef(tok.value)
+        return TypeRef(name, pointer, dims)
 
-    # ── Expression parsing (precedence climbing) ────────────────────
+    def _is_type_start(self) -> bool:
+        if self._check("TYPE") or self._check("RITUAL"):
+            return True
+        return self._check("IDENT") and self._peek().value in self.type_names
+
+    # ── Expression parsing (C operator precedence) ─────────────────
 
     def _expression(self) -> Expr:
         return self._ternary()
@@ -309,106 +402,62 @@ class Parser:
             return Ternary(expr, then_expr, else_expr)
         return expr
 
+    def _binary_level(self, operand, ops):
+        def parse() -> Expr:
+            expr = operand()
+            while self._match(*ops):
+                op = self._previous().kind
+                expr = Binary(expr, op, operand())
+            return expr
+
+        return parse
+
     def _or(self) -> Expr:
-        expr = self._and()
-        while self._match("||"):
-            op = "||"
-            right = self._and()
-            expr = Binary(expr, op, right)
-        return expr
+        return self._binary_level(self._and, ("||",))()
 
     def _and(self) -> Expr:
-        expr = self._equality()
-        while self._match("&&"):
-            op = "&&"
-            right = self._equality()
-            expr = Binary(expr, op, right)
-        return expr
-
-    def _equality(self) -> Expr:
-        expr = self._comparison()
-        while self._match("==", "!="):
-            op = self._previous().kind
-            right = self._comparison()
-            expr = Binary(expr, op, right)
-        return expr
-
-    def _comparison(self) -> Expr:
-        expr = self._term()
-        while self._match("<", "<=", ">", ">="):
-            op = self._previous().kind
-            right = self._term()
-            expr = Binary(expr, op, right)
-        return expr
-
-    def _term(self) -> Expr:
-        expr = self._bitwise_or()
-        while self._match("+", "-"):
-            op = self._previous().kind
-            right = self._bitwise_or()
-            expr = Binary(expr, op, right)
-        return expr
+        return self._binary_level(self._bitwise_or, ("&&",))()
 
     def _bitwise_or(self) -> Expr:
-        expr = self._bitwise_xor()
-        while self._match("|"):
-            op = self._previous().kind
-            right = self._bitwise_xor()
-            expr = Binary(expr, op, right)
-        return expr
+        return self._binary_level(self._bitwise_xor, ("|",))()
 
     def _bitwise_xor(self) -> Expr:
-        expr = self._bitwise_and()
-        while self._match("^"):
-            op = self._previous().kind
-            right = self._bitwise_and()
-            expr = Binary(expr, op, right)
-        return expr
+        return self._binary_level(self._bitwise_and, ("^",))()
 
     def _bitwise_and(self) -> Expr:
-        expr = self._shift()
-        while self._match("&"):
-            op = self._previous().kind
-            right = self._shift()
-            expr = Binary(expr, op, right)
-        return expr
+        return self._binary_level(self._equality, ("&",))()
+
+    def _equality(self) -> Expr:
+        return self._binary_level(self._comparison, ("==", "!="))()
+
+    def _comparison(self) -> Expr:
+        return self._binary_level(self._shift, ("<", "<=", ">", ">="))()
 
     def _shift(self) -> Expr:
-        expr = self._factor()
-        while self._match("<<", ">>"):
-            op = self._previous().kind
-            right = self._factor()
-            expr = Binary(expr, op, right)
-        return expr
+        return self._binary_level(self._term, ("<<", ">>"))()
+
+    def _term(self) -> Expr:
+        return self._binary_level(self._factor, ("+", "-"))()
 
     def _factor(self) -> Expr:
-        expr = self._unary()
-        while self._match("*", "/", "%"):
-            op = self._previous().kind
-            right = self._unary()
-            expr = Binary(expr, op, right)
-        return expr
+        return self._binary_level(self._unary, ("*", "/", "%"))()
 
     def _unary(self) -> Expr:
-        if self._match("!", "-", "++", "--"):
+        if self._match("!", "-", "~", "++", "--", "*", "&"):
             op = self._previous().kind
-            expr = self._unary()
-            return Unary(op, expr)
+            return Unary(op, self._unary())
         if self._match("MEASURE"):
-            if self._check("("):
-                self._advance()  # consume (
-                if self._check("TYPE"):
-                    tref = self._type_ref()
-                    self._consume(")", "Expected ')' in measure")
-                    return SizeofExpr(target_type=tref)
-                expr = self._expression()
+            self._consume("(", "Expected '(' after measure")
+            if self._is_type_start():
+                tref = self._type_ref()
                 self._consume(")", "Expected ')' in measure")
-                return SizeofExpr(expr=expr)
-            expr = self._unary()
+                return SizeofExpr(target_type=tref)
+            expr = self._expression()
+            self._consume(")", "Expected ')' in measure")
             return SizeofExpr(expr=expr)
-        return self._call()
+        return self._postfix()
 
-    def _call(self) -> Expr:
+    def _postfix(self) -> Expr:
         expr = self._primary()
         while True:
             if self._match("["):
@@ -416,10 +465,6 @@ class Parser:
                 self._consume("]", "Expected ']' after index")
                 expr = Index(expr, index)
             elif self._match("("):
-                if not isinstance(expr, VarRef):
-                    raise self._error(
-                        self._previous(), "Only named functions can be called"
-                    )
                 args: List[Expr] = []
                 if not self._check(")"):
                     while True:
@@ -427,7 +472,15 @@ class Parser:
                         if not self._match(","):
                             break
                 self._consume(")", "Expected ')' after arguments")
-                expr = Call(expr.name, args)
+                expr = Call(expr, args)
+            elif self._match("."):
+                name = self._consume("IDENT", "Expected member name after '.'").value
+                expr = Member(expr, name, arrow=False)
+            elif self._match("->"):
+                name = self._consume("IDENT", "Expected member name after '->'").value
+                expr = Member(expr, name, arrow=True)
+            elif self._match("++", "--"):
+                expr = Postfix(self._previous().kind, expr)
             else:
                 return expr
 
@@ -446,17 +499,16 @@ class Parser:
             return VarRef(self._previous().value)
         if self._match("("):
             expr = self._expression()
+            while self._match(","):
+                expr = Binary(expr, ",", self._expression())
             self._consume(")", "Expected ')'")
             return expr
         if self._match("["):
-            elements: List[Expr] = []
-            if not self._check("]"):
-                while True:
-                    elements.append(self._expression())
-                    if not self._match(","):
-                        break
-            self._consume("]", "Expected ']' after array elements")
-            return ArrayLit(elements)
+            return ArrayLit(self._list_items("]", "Expected ']' after array elements"))
+        if self._match("{"):
+            return BraceLit(
+                self._list_items("}", "Expected '}' after initializer list")
+            )
         if self._match("CAST"):
             self._consume("(", "Expected '(' after cast")
             target = self._type_ref()
@@ -465,6 +517,16 @@ class Parser:
             self._consume(")", "Expected ')' after cast")
             return Cast(target, expr)
         raise self._error(self._peek(), "Expected expression")
+
+    def _list_items(self, closer: str, message: str) -> List[Expr]:
+        elements: List[Expr] = []
+        if not self._check(closer):
+            while True:
+                elements.append(self._expression())
+                if not self._match(","):
+                    break
+        self._consume(closer, message)
+        return elements
 
     # ── Parser primitives ───────────────────────────────────────────
 

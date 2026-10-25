@@ -46,7 +46,14 @@ KEYWORDS = {
     "false": "BOOL",
     "int": "TYPE",
     "float": "TYPE",
+    "single": "TYPE",
+    "ldouble": "TYPE",
     "bool": "TYPE",
+    "schar": "TYPE",
+    "uchar": "TYPE",
+    "ushort": "TYPE",
+    "uint": "TYPE",
+    "ulong": "TYPE",
     "char": "TYPE",
     "string": "TYPE",
     "void": "TYPE",
@@ -64,11 +71,11 @@ KEYWORDS = {
     "goto": "GOTO",
     "if": "IF",
     "inline": "INLINE",
-    "long": "LONG",
+    "long": "TYPE",
     "nullptr": "NULLPTR",
     "register": "REGISTER",
     "restrict": "RESTRICT",
-    "short": "SHORT",
+    "short": "TYPE",
     "signed": "SIGNED",
     "sizeof": "SIZEOF",
     "static": "STATIC",
@@ -98,6 +105,12 @@ KEYWORDS = {
     "_BitInt": "BITINT",
     "asm": "ASM",
     "fortran": "FORTRAN",
+    "frame": "FRAME",
+    "fusion": "FUSION",
+    "phase": "PHASE",
+    "alias": "ALIAS",
+    "pinned": "PINNED",
+    "erratic": "ERRATIC",
 }
 
 
@@ -135,6 +148,14 @@ class Lexer:
 
             start_line, start_col = self.line, self.col
 
+            three = ch + self._peek(1) + self._peek(2)
+            if three in {"<<=", ">>="}:
+                tokens.append(Token(three, three, start_line, start_col))
+                self._advance()
+                self._advance()
+                self._advance()
+                continue
+
             two = ch + self._peek(1)
             if two in {"->", "<=", ">=", "==", "!=", "&&", "||"}:
                 tokens.append(Token(two, two, start_line, start_col))
@@ -142,6 +163,11 @@ class Lexer:
                 self._advance()
                 continue
             if two in {"<<", ">>"}:
+                tokens.append(Token(two, two, start_line, start_col))
+                self._advance()
+                self._advance()
+                continue
+            if two in {"+=", "-=", "*=", "/=", "%=", "&=", "|=", "^="}:
                 tokens.append(Token(two, two, start_line, start_col))
                 self._advance()
                 self._advance()
@@ -188,6 +214,8 @@ class Lexer:
                 "&",
                 "|",
                 "^",
+                ".",
+                "~",
             }:
                 tokens.append(Token(ch, ch, start_line, start_col))
                 self._advance()
@@ -253,22 +281,77 @@ class Lexer:
 
     def _number(self) -> Token:
         start_line, start_col = self.line, self.col
+        if self._peek() == "0" and self._peek(1) in {"x", "X", "b", "B"}:
+            base = 16 if self._peek(1) in {"x", "X"} else 2
+            digits = "0123456789abcdefABCDEF" if base == 16 else "01"
+            self._advance()
+            self._advance()
+            buf = []
+            while not self._eof() and self._peek() in digits:
+                buf.append(self._advance())
+            if not buf:
+                raise LexError(f"Missing digits in literal at {start_line}:{start_col}")
+            return Token("INT", int("".join(buf), base), start_line, start_col)
         buf = []
-        has_dot = False
-        while not self._eof():
-            ch = self._peek()
-            if ch == "." and not has_dot and self._peek(1).isdigit():
-                has_dot = True
+        is_float = False
+        while not self._eof() and self._peek().isdigit():
+            buf.append(self._advance())
+        if self._peek() == "." and self._peek(1).isdigit():
+            is_float = True
+            buf.append(self._advance())
+            while not self._eof() and self._peek().isdigit():
                 buf.append(self._advance())
-                continue
-            if ch.isdigit():
+        if self._peek() in {"e", "E"} and (
+            self._peek(1).isdigit()
+            or (self._peek(1) in {"+", "-"} and self._peek(2).isdigit())
+        ):
+            is_float = True
+            buf.append(self._advance())
+            if self._peek() in {"+", "-"}:
                 buf.append(self._advance())
-                continue
-            break
+            while not self._eof() and self._peek().isdigit():
+                buf.append(self._advance())
         text = "".join(buf)
-        if has_dot:
+        if is_float:
             return Token("FLOAT", float(text), start_line, start_col)
+        if len(text) > 1 and text.startswith("0"):
+            if any(ch in "89" for ch in text):
+                raise LexError(f"Invalid octal literal at {start_line}:{start_col}")
+            return Token("INT", int(text, 8), start_line, start_col)
         return Token("INT", int(text), start_line, start_col)
+
+    def _escape(self) -> str:
+        """Read one escape sequence; the leading backslash is already consumed."""
+        simple = {
+            "n": "\n",
+            "t": "\t",
+            "r": "\r",
+            "a": "\a",
+            "b": "\b",
+            "f": "\f",
+            "v": "\v",
+            "\\": "\\",
+            "'": "'",
+            '"': '"',
+            "?": "?",
+        }
+        if self._peek() in "01234567":
+            buf = []
+            while len(buf) < 3 and not self._eof() and self._peek() in "01234567":
+                buf.append(self._advance())
+            return chr(int("".join(buf), 8))
+        if self._peek() == "x":
+            self._advance()
+            buf = []
+            while not self._eof() and self._peek() in "0123456789abcdefABCDEF":
+                buf.append(self._advance())
+            if not buf:
+                raise LexError(
+                    f"Missing hex digits in escape at {self.line}:{self.col}"
+                )
+            return chr(int("".join(buf), 16) & 0xFF)
+        esc = self._advance()
+        return simple.get(esc, esc)
 
     def _string(self) -> Token:
         start_line, start_col = self.line, self.col
@@ -283,9 +366,7 @@ class Lexer:
                 self._advance()
                 if self._eof():
                     break
-                esc = self._advance()
-                mapping = {"n": "\n", "t": "\t", "r": "\r", '"': '"', "\\": "\\"}
-                buf.append(mapping.get(esc, esc))
+                buf.append(self._escape())
                 continue
             if ch == "\n":
                 raise LexError(
@@ -303,9 +384,7 @@ class Lexer:
             self._advance()
             if self._eof():
                 raise LexError(f"Unterminated char literal at {start_line}:{start_col}")
-            esc = self._advance()
-            mapping = {"n": "\n", "t": "\t", "r": "\r", "'": "'", '"': '"', "\\": "\\"}
-            value = mapping.get(esc, esc)
+            value = self._escape()
         else:
             value = self._advance()
         if self._eof() or self._peek() != "'":

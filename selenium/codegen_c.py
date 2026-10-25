@@ -1,25 +1,31 @@
 """C code generator for Selenium.
 
-Walks the analysed AST and emits C89-compatible source.
-Each Selenium construct maps to its C equivalent; the I/O
-builtins compile to thin static wrapper functions."""
+Walks the analysed AST and emits C23-compatible source. Type declarations
+come first, then prototypes, globals, function definitions and ``main``.
+Declarators are built recursively from structural types, so function
+pointers, pointer-to-const bindings and multi-dimensional arrays all come
+out in standard C syntax. I/O builtins compile to static helpers emitted in
+the prelude, only when the program uses them."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
 from .ast import (
+    AliasDecl,
     ArrayLit,
     Assign,
     Binary,
     Block,
+    BraceLit,
     BreakStmt,
     Call,
-    Case,
     Cast,
+    CompoundAssign,
     ContinueStmt,
     DoWhileStmt,
+    EnumDecl,
     Expr,
     ExprStmt,
     ForStmt,
@@ -27,43 +33,80 @@ from .ast import (
     GotoStmt,
     IfStmt,
     Index,
-    IndexAssign,
     Label,
     Literal,
-    Param,
+    Member,
+    Postfix,
     PrintStmt,
     Program,
     ReturnStmt,
     SizeofExpr,
     Stmt,
+    StructDecl,
     SwitchStmt,
     Ternary,
-    TopLevel,
-    TypeRef,
     Unary,
+    UnionDecl,
     VarDecl,
     VarRef,
     WhileStmt,
 )
-from .sema import TypeInfo
+from .sema import READ_BUILTINS, Type
 
 
 class CodegenError(Exception):
     """Raised when an AST node cannot be translated to C."""
 
 
+C_BASE = {
+    "int": "int",
+    "uint": "unsigned int",
+    "short": "short",
+    "ushort": "unsigned short",
+    "long": "long",
+    "ulong": "unsigned long",
+    "schar": "signed char",
+    "uchar": "unsigned char",
+    "char": "char",
+    "bool": "_Bool",
+    "float": "double",
+    "single": "float",
+    "ldouble": "long double",
+    "void": "void",
+    "string": "const char",
+}
+
+# print kind -> (C parameter type, printf conversion)
+PRINT_HELPERS = {
+    "int": ("int", "%d"),
+    "uint": ("unsigned int", "%u"),
+    "long": ("long", "%ld"),
+    "ulong": ("unsigned long", "%lu"),
+    "char": ("char", "%c"),
+    "float": ("double", "%g"),
+    "ldouble": ("long double", "%Lg"),
+    "string": ("const char *", "%s"),
+}
+
+READ_HELPERS = {
+    "read_int": 'static int selenium_read_int(void) { int x; scanf("%d", &x); return x; }',
+    "read_float": 'static double selenium_read_float(void) { double x; scanf("%lf", &x); return x; }',
+    "read_bool": 'static _Bool selenium_read_bool(void) { int x; scanf("%d", &x); return x; }',
+    "read_char": 'static char selenium_read_char(void) { char x; scanf(" %c", &x); return x; }',
+}
+
+TYPE_DECLS = (StructDecl, UnionDecl, EnumDecl, AliasDecl)
+
+
 @dataclass(slots=True)
 class CodegenContext:
-    expr_types: Dict[int, TypeInfo]
+    expr_types: Dict[int, Type]
     used_builtins: set
+    analyzer: object  # selenium.sema.SemanticAnalyzer
 
 
 class CCodeGenerator:
-    """Walk the analysed AST and emit C89-compatible source code.
-
-    Selenium's lunar keywords (ritual, eclipse, tide, whisper, ...)
-    compile directly to their C equivalents. Built-in I/O functions
-    delegate to static wrapper functions emitted in the prelude."""
+    """Walk the analysed AST and emit C source code."""
 
     def __init__(self, program: Program, context: CodegenContext):
         self.program = program
@@ -72,121 +115,177 @@ class CCodeGenerator:
         self.indent = 0
 
     def generate(self) -> str:
-        """Produce the full C source: prelude, globals, functions, main."""
+        """Produce the full C source."""
         self.lines = []
         self.indent = 0
+        items = self.program.items
         self._emit_prelude(self.ctx.used_builtins)
-        functions = [
-            item for item in self.program.items if isinstance(item, FunctionDecl)
-        ]
-        functions.sort(key=lambda fn: fn.body is not None)
-        globals_ = [item for item in self.program.items if isinstance(item, VarDecl)]
-        statements = [
-            item
-            for item in self.program.items
-            if not isinstance(item, (FunctionDecl, VarDecl))
-        ]
-        for var in globals_:
-            self._emit_global_var(var)
-            self._writeline("")
+        for item in items:
+            if isinstance(item, (StructDecl, UnionDecl)):
+                self._emit_record(item)
+            elif isinstance(item, EnumDecl):
+                self._emit_enum(item)
+        functions = [item for item in items if isinstance(item, FunctionDecl)]
         for fn in functions:
-            self._emit_function(fn)
-            self._writeline("")
+            self._emit_prototype(fn)
+        self._writeline("")
+        self._dynamic_globals = set()
+        for item in items:
+            if not isinstance(item, VarDecl):
+                continue
+            if self._is_static_init(item.value):
+                self._writeline(self._var_line(item))
+                continue
+            if isinstance(item.value, (ArrayLit, BraceLit)):
+                raise CodegenError(
+                    f"Global {item.name} needs constant elements in its initialiser"
+                )
+            # C needs a constant initialiser at file scope, so the value is
+            # assigned in main at the point where the declaration appears.
+            self._dynamic_globals.add(id(item))
+            self._writeline(self._var_text(item, initialise=False) + ";")
+        self._writeline("")
+        for fn in functions:
+            if fn.body is not None:
+                self._emit_function(fn)
+                self._writeline("")
+        statements = [
+            item for item in items if not isinstance(item, (FunctionDecl,) + TYPE_DECLS)
+        ]
         self._emit_main(statements)
         return "\n".join(self.lines) + "\n"
 
-    # ── C prelude (I/O wrappers) ──────────────────────────────────
+    def _is_static_init(self, expr: Expr) -> bool:
+        """True when ``expr`` is a constant expression valid at file scope."""
+        if isinstance(expr, (Literal, SizeofExpr)):
+            return True
+        if isinstance(expr, Unary):
+            return expr.op in ("-", "+", "~", "!") and self._is_static_init(expr.expr)
+        if isinstance(expr, Cast):
+            return self._is_static_init(expr.expr)
+        if isinstance(expr, Binary):
+            return (
+                expr.op != ","
+                and self._is_static_init(expr.left)
+                and self._is_static_init(expr.right)
+            )
+        if isinstance(expr, Ternary):
+            return all(
+                self._is_static_init(e)
+                for e in (expr.condition, expr.then_expr, expr.else_expr)
+            )
+        if isinstance(expr, (ArrayLit, BraceLit)):
+            return all(self._is_static_init(e) for e in expr.elements)
+        return False
 
-    def _emit_prelude(self, used_builtins: set) -> None:
+    # ── Prelude ───────────────────────────────────────────────────
+
+    def _emit_prelude(self, used: set) -> None:
         self._writeline("#include <stdbool.h>")
         self._writeline("#include <stdio.h>")
         self._writeline("#include <stdlib.h>")
         self._writeline("")
-        if "int" in used_builtins:
-            self._writeline(
-                'static void selenium_print_int(int value) { printf("%d\\n", value); }'
-            )
-        if "float" in used_builtins:
-            self._writeline(
-                'static void selenium_print_float(double value) { printf("%g\\n", value); }'
-            )
-        if "bool" in used_builtins:
+        for kind, (ctype, fmt) in PRINT_HELPERS.items():
+            if kind in used:
+                self._writeline(
+                    f'static void selenium_print_{kind}({ctype} value) {{ printf("{fmt}\\n", value); }}'
+                )
+        if "bool" in used:
             self._writeline(
                 'static void selenium_print_bool(_Bool value) { printf("%s\\n", value ? "true" : "false"); }'
             )
-        if "char" in used_builtins:
-            self._writeline(
-                'static void selenium_print_char(char value) { printf("%c\\n", value); }'
-            )
-        if "string" in used_builtins:
-            self._writeline(
-                'static void selenium_print_string(const char *value) { printf("%s\\n", value); }'
-            )
-        if "read_int" in used_builtins:
-            self._writeline(
-                'static int selenium_read_int(void) { int x; scanf("%d", &x); return x; }'
-            )
-        if "read_float" in used_builtins:
-            self._writeline(
-                'static double selenium_read_float(void) { double x; scanf("%lf", &x); return x; }'
-            )
-        if "read_bool" in used_builtins:
-            self._writeline(
-                'static _Bool selenium_read_bool(void) { int x; scanf("%d", &x); return x; }'
-            )
-        if "read_char" in used_builtins:
-            self._writeline(
-                'static char selenium_read_char(void) { char x; scanf(" %c", &x); return x; }'
-            )
+        for name, helper in READ_HELPERS.items():
+            if name in used:
+                self._writeline(helper)
         self._writeline("")
 
-    # ── Function emission ─────────────────────────────────────────
+    # ── Type declarations ─────────────────────────────────────────
+
+    def _emit_record(self, decl) -> None:
+        kind = "struct" if isinstance(decl, StructDecl) else "union"
+        self._writeline(f"{kind} {decl.name} {{")
+        self.indent += 1
+        for field in decl.fields:
+            ftype = self._resolve(field.type)
+            self._writeline(self._decl(ftype, field.name) + ";")
+        self.indent -= 1
+        self._writeline("};")
+        self._writeline("")
+
+    def _emit_enum(self, decl: EnumDecl) -> None:
+        items = [
+            name if value is None else f"{name} = {value}"
+            for name, value in decl.enumerators
+        ]
+        self._writeline(f"enum {decl.name} {{ {', '.join(items)} }};")
+        self._writeline("")
+
+    # ── Functions ─────────────────────────────────────────────────
+
+    def _signature_text(self, fn: FunctionDecl) -> str:
+        params = (
+            ", ".join(self._decl(self._resolve(p.type), p.name) for p in fn.params)
+            or "void"
+        )
+        ret = self._resolve(fn.return_type)
+        return self._decl(ret, f"{fn.name}({params})")
+
+    def _emit_prototype(self, fn: FunctionDecl) -> None:
+        prefix = "static " if fn.body is not None else ""
+        self._writeline(f"{prefix}{self._signature_text(fn)};")
 
     def _emit_function(self, fn: FunctionDecl) -> None:
-        ret = self._c_type(fn.return_type.name)
-        params = ", ".join(f"{self._c_type(p.type.name)} {p.name}" for p in fn.params)
-        if not params:
-            params = "void"
-        if fn.body is None:
-            self._writeline(f"{ret} {fn.name}({params});")
-            return
-        self._writeline(f"static {ret} {fn.name}({params}) {{")
+        self._writeline(f"static {self._signature_text(fn)} {{")
         self.indent += 1
         self._emit_statements(fn.body.statements)
         self.indent -= 1
         self._writeline("}")
 
-    def _emit_main(self, items: List[TopLevel]) -> None:
+    def _emit_main(self, items: List[object]) -> None:
         self._writeline("int main(void) {")
         self.indent += 1
         for item in items:
-            self._emit_item(item)
+            if isinstance(item, VarDecl):
+                if id(item) in self._dynamic_globals:
+                    self._writeline(f"{item.name} = {self._expr(item.value)};")
+            else:
+                self._emit_item(item)
         self._writeline("return 0;")
         self.indent -= 1
         self._writeline("}")
 
-    # ── Statement-by-statement dispatch ───────────────────────────
+    # ── Statements ────────────────────────────────────────────────
+
+    def _emit_statements(self, statements: List[Stmt]) -> None:
+        for stmt in statements:
+            self._emit_item(stmt)
 
     def _emit_item(self, item: object) -> None:
         if isinstance(item, VarDecl):
-            self._emit_vardecl(item)
+            self._writeline(self._var_line(item))
         elif isinstance(item, Assign):
-            self._writeline(f"{item.name} = {self._expr(item.value)};")
-        elif isinstance(item, IndexAssign):
+            self._writeline(f"{self._expr(item.target)} = {self._expr(item.value)};")
+        elif isinstance(item, CompoundAssign):
             self._writeline(
-                f"{self._expr(item.target)}[{self._expr(item.index, parens=False)}] = {self._expr(item.value)};"
+                f"{self._expr(item.target)} {item.op}= {self._expr(item.value)};"
             )
         elif isinstance(item, IfStmt):
             self._emit_if(item)
         elif isinstance(item, WhileStmt):
-            self._emit_while(item)
+            self._writeline(f"while ({self._expr(item.condition)}) {{")
+            self._emit_body(item.body)
+            self._writeline("}")
         elif isinstance(item, DoWhileStmt):
-            self._emit_do_while(item)
+            self._writeline("do {")
+            self._emit_body(item.body)
+            self._writeline(f"}} while ({self._expr(item.condition)});")
         elif isinstance(item, GotoStmt):
             self._writeline(f"goto {item.label};")
         elif isinstance(item, Label):
             self._writeline(f"{item.name}:;")
-            self._emit_block_stmt(item.body)
+            self._writeline("{")
+            self._emit_body(item.body)
+            self._writeline("}")
         elif isinstance(item, SwitchStmt):
             self._emit_switch(item)
         elif isinstance(item, ForStmt):
@@ -201,176 +300,172 @@ class CCodeGenerator:
         elif isinstance(item, ContinueStmt):
             self._writeline("continue;")
         elif isinstance(item, PrintStmt):
-            self._emit_print(item.value)
+            kind = self.ctx.analyzer.print_kind(self._type_of(item.value))
+            self._writeline(f"selenium_print_{kind}({self._expr(item.value)});")
         elif isinstance(item, ExprStmt):
             self._writeline(f"{self._expr(item.expr)};")
         elif isinstance(item, Block):
-            self._emit_block_stmt(item)
-        elif isinstance(item, FunctionDecl):
+            self._writeline("{")
+            self._emit_body(item)
+            self._writeline("}")
+        elif isinstance(item, FunctionDecl) or isinstance(item, TYPE_DECLS):
             return
         else:
             raise CodegenError(f"Unhandled item: {type(item).__name__}")
 
-    def _emit_statements(self, statements: List[Stmt]) -> None:
-        for stmt in statements:
-            self._emit_item(stmt)
-
-    def _emit_block_stmt(self, block: Block) -> None:
-        self._writeline("{")
+    def _emit_body(self, block: Block) -> None:
         self.indent += 1
         self._emit_statements(block.statements)
         self.indent -= 1
-        self._writeline("}")
 
     def _emit_if(self, stmt: IfStmt) -> None:
-        self._writeline(f"if ({self._expr(stmt.condition, parens=False)}) {{")
-        self.indent += 1
-        self._emit_statements(stmt.then_block.statements)
-        self.indent -= 1
+        self._writeline(f"if ({self._expr(stmt.condition)}) {{")
+        self._emit_body(stmt.then_block)
         if stmt.else_block is None:
             self._writeline("}")
         else:
             self._writeline("} else {")
-            self.indent += 1
-            self._emit_statements(stmt.else_block.statements)
-            self.indent -= 1
+            self._emit_body(stmt.else_block)
             self._writeline("}")
 
-    def _emit_while(self, stmt: WhileStmt) -> None:
-        self._writeline(f"while ({self._expr(stmt.condition, parens=False)}) {{")
-        self.indent += 1
-        self._emit_statements(stmt.body.statements)
-        self.indent -= 1
-        self._writeline("}")
-
-    def _emit_do_while(self, stmt: DoWhileStmt) -> None:
-        self._writeline("do {")
-        self.indent += 1
-        self._emit_statements(stmt.body.statements)
-        self.indent -= 1
-        self._writeline(f"}} while ({self._expr(stmt.condition, parens=False)});")
-
     def _emit_switch(self, stmt: SwitchStmt) -> None:
-        self._writeline(f"switch ({self._expr(stmt.expr, parens=False)}) {{")
+        self._writeline(f"switch ({self._expr(stmt.expr)}) {{")
         self.indent += 1
         for case in stmt.cases:
             self._writeline(f"case {self._expr(case.value)}:")
-            self.indent += 1
-            self._emit_statements(case.body.statements)
-            self.indent -= 1
+            self._emit_body(case.body)
         if stmt.default is not None:
             self._writeline("default:")
-            self.indent += 1
-            self._emit_statements(stmt.default.statements)
-            self.indent -= 1
+            self._emit_body(stmt.default)
         self.indent -= 1
         self._writeline("}")
 
     def _emit_for(self, stmt: ForStmt) -> None:
-        init_str = ""
-        if stmt.init is not None:
-            if isinstance(stmt.init, VarDecl):
-                init_str = f"{self._c_type(stmt.init.type.name)} {stmt.init.name} = {self._expr(stmt.init.value)}"
-            elif isinstance(stmt.init, Assign):
-                init_str = f"{stmt.init.name} = {self._expr(stmt.init.value)}"
-            elif isinstance(stmt.init, ExprStmt):
-                init_str = self._expr(stmt.init.expr)
-        cond_str = self._expr(stmt.condition, parens=False) if stmt.condition else ""
-        inc_str = ""
-        if stmt.increment is not None:
-            if isinstance(stmt.increment, Assign):
-                inc_str = f"{stmt.increment.name} = {self._expr(stmt.increment.value)}"
-            elif isinstance(stmt.increment, ExprStmt):
-                inc_str = self._expr(stmt.increment.expr)
-        self._writeline(f"for ({init_str}; {cond_str}; {inc_str}) {{")
-        self.indent += 1
-        self._emit_statements(stmt.body.statements)
-        self.indent -= 1
+        init = "" if stmt.init is None else self._simple_text(stmt.init)
+        cond = self._expr(stmt.condition)
+        inc = "" if stmt.increment is None else self._simple_text(stmt.increment)
+        self._writeline(f"for ({init}; {cond}; {inc}) {{")
+        self._emit_body(stmt.body)
         self._writeline("}")
 
-    def _emit_global_var(self, decl: VarDecl) -> None:
-        self._emit_declaration(decl)
+    def _simple_text(self, stmt) -> str:
+        """A for-loop clause: declaration, assignment or expression, without ';'."""
+        if isinstance(stmt, VarDecl):
+            return self._var_text(stmt)
+        if isinstance(stmt, Assign):
+            return f"{self._expr(stmt.target)} = {self._expr(stmt.value)}"
+        if isinstance(stmt, CompoundAssign):
+            return f"{self._expr(stmt.target)} {stmt.op}= {self._expr(stmt.value)}"
+        if isinstance(stmt, ExprStmt):
+            return self._expr(stmt.expr)
+        raise CodegenError(f"Unsupported for-loop clause: {type(stmt).__name__}")
 
-    def _emit_vardecl(self, decl: VarDecl) -> None:
-        self._emit_declaration(decl)
+    # ── Declarations ──────────────────────────────────────────────
 
-    def _emit_declaration(self, decl: VarDecl) -> None:
-        ctype = self._c_type(decl.type.name)
-        qualifier = (
-            "const " if not decl.mutable and not ctype.startswith("const ") else ""
-        )
-        if decl.type.length is not None:
-            self._writeline(
-                f"{qualifier}{ctype} {decl.name}[{decl.type.length}] = {self._expr(decl.value)};"
-            )
-            return
-        self._writeline(f"{qualifier}{ctype} {decl.name} = {self._expr(decl.value)};")
+    def _var_text(self, decl: VarDecl, initialise: bool = True) -> str:
+        vtype = self._resolve(decl.type)
+        storage = ""
+        if "pinned" in decl.qualifiers:
+            storage += "static "
+        if "erratic" in decl.qualifiers:
+            storage += "volatile "
+        # A deferred global cannot be const in C, since it is assigned later.
+        const = initialise and not decl.mutable
+        text = f"{storage}{self._decl(vtype, decl.name, const=const)}"
+        if initialise:
+            text += f" = {self._expr(decl.value)}"
+        return text
 
-    def _emit_print(self, expr: Expr) -> None:
-        t = self._type_of(expr)
-        text = self._expr(expr)
-        if t.name == "int":
-            self._writeline(f"selenium_print_int({text});")
-        elif t.name == "float":
-            self._writeline(f"selenium_print_float({text});")
-        elif t.name == "bool":
-            self._writeline(f"selenium_print_bool({text});")
-        elif t.name == "char":
-            self._writeline(f"selenium_print_char({text});")
-        elif t.name == "string":
-            self._writeline(f"selenium_print_string({text});")
+    def _var_line(self, decl: VarDecl) -> str:
+        return self._var_text(decl) + ";"
+
+    def _decl(self, t: Type, name: str = "", const: bool = False) -> str:
+        """Render a C declarator for structural type ``t`` around ``name``."""
+        if t.fn is not None:
+            params = ", ".join(self._decl(p) for p in t.fn.params) or "void"
+            star = "*" + (" const" if const else "")
+            inner = f"({star}{' ' + name if name else ''})"
+            return self._decl(t.fn.ret, f"{inner}({params})")
+        base, extra = self._c_base(t)
+        count = t.pointer + extra
+        if const:
+            if count:
+                stars = "*" * count + " const"
+            else:
+                base = "const " + base
+                stars = ""
         else:
-            raise CodegenError(f"Cannot print type {t.name}")
+            stars = "*" * count
+        text = stars
+        if name:
+            if not text:
+                text = name
+            elif text.endswith("*"):
+                text = text + name
+            else:
+                text = f"{text} {name}"
+        text += "".join(f"[{n}]" for n in t.dims)
+        return f"{base} {text}" if text else base
 
-    # ── Expression emission ───────────────────────────────────────
+    def _c_base(self, t: Type) -> Tuple[str, int]:
+        if t.base in C_BASE:
+            return C_BASE[t.base], (1 if t.base == "string" else 0)
+        kind = self.ctx.analyzer.type_kinds.get(t.base)
+        if kind is None:
+            raise CodegenError(f"Unsupported C type: {t.base}")
+        return f"{kind} {t.base}", 0
 
-    def _expr(self, expr: Expr, parens: bool = True) -> str:
+    def _resolve(self, tref) -> Type:
+        return self.ctx.analyzer.resolve_type(tref)
+
+    # ── Expressions ───────────────────────────────────────────────
+
+    def _expr(self, expr: Expr) -> str:
         if isinstance(expr, Literal):
             if expr.kind == "string":
-                return self._escape_string(expr.value)
+                return _c_string(expr.value)
             if expr.kind == "char":
-                return self._escape_char(expr.value)
+                return _c_char(expr.value)
             if expr.kind == "bool":
                 return "true" if expr.value else "false"
+            if expr.kind == "float":
+                return repr(float(expr.value))
             return str(expr.value)
         if isinstance(expr, VarRef):
+            if expr.name in READ_BUILTINS:
+                return f"selenium_{expr.name}"
             return expr.name
-        if isinstance(expr, ArrayLit):
-            return (
-                "{"
-                + ", ".join(self._expr(e, parens=False) for e in expr.elements)
-                + "}"
-            )
+        if isinstance(expr, (ArrayLit, BraceLit)):
+            return "{" + ", ".join(self._expr(e) for e in expr.elements) + "}"
         if isinstance(expr, Index):
-            return f"{self._expr(expr.target)}[{self._expr(expr.index, parens=False)}]"
+            return f"{self._expr(expr.target)}[{self._expr(expr.index)}]"
+        if isinstance(expr, Member):
+            op = "->" if expr.arrow else "."
+            return f"{self._expr(expr.target)}{op}{expr.name}"
         if isinstance(expr, Cast):
-            target = self._c_type(expr.target_type.name)
+            target = self._decl(self._resolve(expr.target_type))
             return f"(({target})({self._expr(expr.expr)}))"
         if isinstance(expr, Call):
-            if expr.callee in {"read_int", "read_float", "read_bool", "read_char"}:
-                return f"selenium_{expr.callee}()"
             args = ", ".join(self._expr(arg) for arg in expr.args)
-            return f"{expr.callee}({args})"
+            return f"{self._expr(expr.callee)}({args})"
         if isinstance(expr, Unary):
             return f"({expr.op}{self._expr(expr.expr)})"
+        if isinstance(expr, Postfix):
+            return f"({self._expr(expr.expr)}{expr.op})"
         if isinstance(expr, SizeofExpr):
             if expr.target_type is not None:
-                return f"sizeof({self._c_type(expr.target_type.name)})"
-            return f"sizeof({self._expr(expr.expr)})"
+                return f"((int)sizeof({self._decl(self._resolve(expr.target_type))}))"
+            return f"((int)sizeof({self._expr(expr.expr)}))"
         if isinstance(expr, Ternary):
-            cond = self._expr(expr.condition)
-            then = self._expr(expr.then_expr)
-            else_ = self._expr(expr.else_expr)
-            return f"({cond} ? {then} : {else_})"
+            return (
+                f"({self._expr(expr.condition)} ? {self._expr(expr.then_expr)}"
+                f" : {self._expr(expr.else_expr)})"
+            )
         if isinstance(expr, Binary):
-            left = self._expr(expr.left, parens=False)
-            right = self._expr(expr.right, parens=False)
-            if parens:
-                return f"({left} {expr.op} {right})"
-            return f"{left} {expr.op} {right}"
+            return f"({self._expr(expr.left)} {expr.op} {self._expr(expr.right)})"
         raise CodegenError(f"Unhandled expr: {type(expr).__name__}")
 
-    def _type_of(self, expr: Expr) -> TypeInfo:
+    def _type_of(self, expr: Expr) -> Type:
         try:
             return self.ctx.expr_types[id(expr)]
         except KeyError as exc:
@@ -378,32 +473,39 @@ class CCodeGenerator:
                 f"Missing inferred type for {type(expr).__name__}"
             ) from exc
 
-    def _c_type(self, name: str) -> str:
-        mapping = {
-            "int": "int",
-            "float": "double",
-            "bool": "_Bool",
-            "char": "char",
-            "string": "const char *",
-            "void": "void",
-        }
-        if name not in mapping:
-            raise CodegenError(f"Unsupported C type: {name}")
-        return mapping[name]
-
-    def _escape_string(self, value: str) -> str:
-        value = (
-            value.replace("\\", "\\\\")
-            .replace('"', '\\"')
-            .replace("\n", "\\n")
-            .replace("\t", "\\t")
-            .replace("\r", "\\r")
-        )
-        return f'"{value}"'
-
-    def _escape_char(self, value: str) -> str:
-        mapping = {"\\": "\\\\", "'": "\\'", "\n": "\\n", "\t": "\\t", "\r": "\\r"}
-        return f"'{mapping.get(value, value)}'"
+    # ── Output helpers ────────────────────────────────────────────
 
     def _writeline(self, text: str) -> None:
         self.lines.append("    " * self.indent + text)
+
+
+def _c_string(value: str) -> str:
+    out = []
+    for ch in value:
+        if ch == "\\":
+            out.append("\\\\")
+        elif ch == '"':
+            out.append('\\"')
+        elif ch == "\n":
+            out.append("\\n")
+        elif ch == "\t":
+            out.append("\\t")
+        elif ch == "\r":
+            out.append("\\r")
+        elif ord(ch) < 32 or ord(ch) >= 127:
+            out.append(f"\\{ord(ch):03o}")
+        else:
+            out.append(ch)
+    return '"' + "".join(out) + '"'
+
+
+def _c_char(value: str) -> str:
+    if value == "\\":
+        body = "\\\\"
+    elif value == "'":
+        body = "\\'"
+    elif 32 <= ord(value) < 127:
+        body = value
+    else:
+        body = f"\\{ord(value):03o}"
+    return f"'{body}'"
