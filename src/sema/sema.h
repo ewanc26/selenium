@@ -24,4 +24,5 @@ private:
     int loopDepth = 0;
     int switchDepth = 0;
     bool inFunction = false;
+    std::shared_ptr<TypeRef> currentReturnType;
 };
