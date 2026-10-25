@@ -37,14 +37,14 @@ static int walk(struct Rec *head) {
     }
     return total;
 }
+struct Rec table[5] = {
+    {"ada", 72, nullptr},
+    {"brin", 91, nullptr},
+    {"cole", 58, nullptr},
+    {"dara", 91, nullptr},
+    {"eli", 66, nullptr},
+};
 static void main_program(void) {
-    struct Rec table[5] = {
-        {"ada", 72, nullptr},
-        {"brin", 91, nullptr},
-        {"cole", 58, nullptr},
-        {"dara", 91, nullptr},
-        {"eli", 66, nullptr},
-    };
     sort_by_score(&table[0], 5);
     link(&table[0], 5);
     printf("%d\n", walk(&table[0]));

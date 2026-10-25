@@ -63,6 +63,17 @@ seal int y = 10;     // immutable (const)
 Variables are declared with `wax` (mutable) or `seal` (immutable), followed by type and name.
 Top-level declarations become C globals. Declarations inside blocks are local.
 
+Pointers are null with `nullptr`, the C23 null pointer constant. It converts to any pointer or function-pointer type and can be compared with `==` and `!=`. It compiles to `NULL`.
+
+```selenium
+frame Node { int value; Node* next; };
+wax Node tail = {3, nullptr};
+wax Node mid = {2, &tail};              // a global may take the address of an earlier global
+wax Node[2] pool = [{1, &pool[1]}, {2, nullptr}];
+```
+
+Global initialisers may be constant expressions, string literals, `nullptr`, function names and addresses of globals (`&x`, `&arr[i]`, `&s.field`). A global may refer to its own address in its initialiser, as in `pool` above. A global initialiser that uses a runtime value is assigned in `main`, but a brace or array list needs every element to be constant.
+
 ### Functions
 
 ```selenium
@@ -75,6 +86,8 @@ Functions are defined with `ritual`, take typed parameters, and specify a return
 
 Declare a C function with `summon ritual name(type p) -> type;`. Add `from "file.c"` to compile and link a plain C source file, resolved relative to the `.sel` file.
 Recursion is supported. Functions may be called before they are defined.
+
+`ritual` definitions and `summon` declarations are only allowed at top level. Writing one inside a block (a `ritual` body, `eclipse`, `tide`, and so on) is a compile error, as are `frame`, `fusion`, `phase` and `alias` declarations inside blocks.
 
 ### I/O
 

@@ -1,0 +1,50 @@
+// File-scope initialisers that contain addresses: a linked list built from
+// the tail back to the head, a self-linked array, a dispatch table of
+// function names, and a global pointer to another global.
+frame Node {
+    int value;
+    Node* next;
+};
+
+frame Op {
+    string name;
+    ritual(int, int) -> int fn;
+};
+
+ritual add_op(int a, int b) -> int { return a + b; };
+ritual mul_op(int a, int b) -> int { return a * b; };
+
+wax Node tail = {3, nullptr};
+wax Node mid = {2, &tail};
+wax Node head = {1, &mid};
+wax Node* first = &head;
+
+wax Node[3] pool = [{10, &pool[1]}, {20, &pool[2]}, {30, nullptr}];
+seal Node* pool_start = &pool[0];
+
+wax Op[2] ops = [{"add", add_op}, {"mul", mul_op}];
+
+wax int counter = 7;
+wax int* counter_ptr = &counter;
+
+ritual apply(Op* table, int idx, int a, int b) -> int {
+    return table[idx].fn(a, b);
+};
+
+ritual main_program() -> void {
+    wax Node* cur = first;
+    tide (cur != nullptr) {
+        whisper cur->value;
+        cur = cur->next;
+    };
+    wax Node* p = pool_start;
+    whisper p->next->value;
+    whisper p->next->next->value;
+    whisper apply(&ops[0], 0, 3, 4);
+    whisper apply(&ops[0], 1, 3, 4);
+    *counter_ptr = *counter_ptr + 1;
+    whisper counter;
+    whisper ops[1].name;
+};
+
+main_program();

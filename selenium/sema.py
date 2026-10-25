@@ -118,12 +118,17 @@ CHAR = Type("char")
 FLOAT = Type("float")
 STRING = Type("string")
 
+# Type of the ``nullptr`` literal. It adapts to any pointer or function-pointer
+# type, as C's null pointer constant does, and cannot be printed.
+NULL_PTR = Type("void", pointer=1)
+
 LITERAL_TYPES = {
     "int": INT,
     "float": FLOAT,
     "char": CHAR,
     "bool": BOOL,
     "string": STRING,
+    "nullptr": NULL_PTR,
 }
 
 
@@ -315,6 +320,12 @@ class SemanticAnalyzer:
         vtype = self.resolve_type(decl.type)
         if vtype == VOID:
             raise SemanticError(f"Variable {decl.name} cannot have type void")
+        if scope is self.globals:
+            # As in C, a file-scope name is in scope inside its own initialiser,
+            # so a global array can link its elements to one another with &.
+            scope.define(decl.name, Symbol(vtype, mutable=decl.mutable))
+            self._check_init(vtype, decl.value, scope, decl.name)
+            return
         self._check_init(vtype, decl.value, scope, decl.name)
         scope.define(decl.name, Symbol(vtype, mutable=decl.mutable))
 
@@ -676,7 +687,10 @@ class SemanticAnalyzer:
             f"Operands of {op} must have the same type",
         )
         if op in {"==", "!="}:
-            if not self._is_scalar(common):
+            # Function pointers compare like other pointers, so they can be
+            # tested against nullptr.
+            function_pointer = common.fn is not None and not common.pointer
+            if not (self._is_scalar(common) or function_pointer) or common.dims:
                 raise SemanticError(f"Operands of {op} must be scalar values")
             return BOOL
         if op in {"<", "<=", ">", ">="}:
@@ -778,6 +792,8 @@ class SemanticAnalyzer:
             ok = self._is_integer(target)
         elif expr.kind == "float":
             ok = self._is_float(target)
+        elif expr.kind == "nullptr":
+            ok = not target.dims and (target.pointer > 0 or target.fn is not None)
         else:
             ok = False
         if ok:

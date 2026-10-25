@@ -495,6 +495,8 @@ class Parser:
             return Literal(self._previous().value, "char")
         if self._match("BOOL"):
             return Literal(self._previous().value, "bool")
+        if self._match("NULLPTR"):
+            return Literal(None, "nullptr")
         if self._match("IDENT"):
             return VarRef(self._previous().value)
         if self._match("("):
