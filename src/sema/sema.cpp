@@ -25,10 +25,22 @@ void SemanticAnalyzer::analyze(Program &prog) {
     scopes.emplace_back();
     functions.clear();
     functionArities.clear();
-    // Collect declarations first so forward calls and recursion work.
+    predeclaredGlobals.clear();
+    // Predeclare global variables and functions so forward references work.
     for (const auto &item : prog.items) {
         if (!item) continue;
-        if (const auto *fn = std::get_if<FunctionDeclStmt>(&item->node)) {
+        if (const auto *global = std::get_if<VarDeclStmt>(&item->node)) {
+            if (!scopes.front().insert(global->name).second) {
+                error("redeclaration of global variable '" + global->name + "'", item->line, item->col);
+            }
+            predeclaredGlobals.insert(global->name);
+        } else if (const auto *enumeration = std::get_if<EnumDeclStmt>(&item->node)) {
+            for (const auto &entry : enumeration->enumerators) {
+                if (!scopes.front().insert(entry.first).second) {
+                    error("redeclaration of global identifier '" + entry.first + "'", item->line, item->col);
+                }
+            }
+        } else if (const auto *fn = std::get_if<FunctionDeclStmt>(&item->node)) {
             functions.insert(fn->name);
             auto [it, inserted] = functionArities.emplace(fn->name, fn->params.size());
             if (!inserted && it->second != fn->params.size()) {
@@ -54,10 +66,11 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
     std::visit([&](auto &node) {
         using T = std::decay_t<decltype(node)>;
         if constexpr (std::is_same_v<T, VarDeclStmt>) {
-            if (scopes.back().find(node.name) != scopes.back().end()) {
+            const bool wasPredeclaredGlobal = scopes.size() == 1 && predeclaredGlobals.erase(node.name) != 0;
+            if (!wasPredeclaredGlobal && scopes.back().find(node.name) != scopes.back().end()) {
                 error("redeclaration of variable '" + node.name + "'", stmt->line, stmt->col);
             }
-            scopes.back().insert(node.name);
+            if (!wasPredeclaredGlobal) scopes.back().insert(node.name);
             analyzeExpr(node.init);
         } else if constexpr (std::is_same_v<T, AssignStmt>) {
             analyzeExpr(node.target);
