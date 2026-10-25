@@ -222,16 +222,21 @@ whisper max;
 
 ## Project layout
 
+
 ```
-selenium/
-  lexer.py      – tokeniser (keywords, literals, operators)
-  parser.py     – recursive-descent parser → AST
-  ast.py        – AST node types
-  sema.py       – type checker and semantic analyser
-  codegen_c.py  – C code generator
-  main.py       – CLI entry point
-examples/       – sample .sel programs
+CMakeLists.txt            – C++20 compiler and unit-test targets
+src/lexer/                – tokenizer and token definitions
+src/parser/               – recursive-descent parser and AST construction
+src/ast/                  – AST node types
+src/sema/                 – semantic analysis (currently incomplete)
+src/codegen/              – C source emitter
+src/cli/                  – seleniumc command-line driver
+tests/unit/               – Catch2 unit tests
+tests/differential/       – .sel programs paired with C reference programs
+examples/                 – sample .sel programs
 ```
+
+The documented C++ build target is build/seleniumc. The compiler still has migration gaps: its CLI references a runtime source file that is not present in the repository, and the old Python test harnesses need to be wired to the C++ executable. See https://github.com/ewanc26/selenium/issues/14 for tracked work.
 
 ## Notes
 
