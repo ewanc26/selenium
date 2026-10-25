@@ -315,7 +315,6 @@ std::string emitProgram(const Program &prog) {
     // globals
     for (auto &it : others) {
         if (std::holds_alternative<VarDeclStmt>(it->node)) {
-            auto &v = std::get<VarDeclStmt>(it->node);
             ss << emitType(v.type) << " " << v.name;
             if (v.type->dims.size()) {
                 for (auto d : v.type->dims) { if (d>0) ss << "[" << d << "]"; else ss << "[]"; }
