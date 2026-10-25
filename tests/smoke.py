@@ -46,8 +46,17 @@ def main() -> int:
         output = temp / "generated output with spaces.c"
         run([compiler, example, "-o", str(output)])
         generated = output.read_text(encoding="utf-8")
-        if "selenium_print_string" not in generated or "selenium_runtime.c" not in generated:
-            raise AssertionError("generated C does not reference the required runtime helpers")
+        if "selenium_print_string" not in generated or "void selenium_print_string" not in generated:
+            raise AssertionError("generated C does not embed the required runtime helpers")
+        if "selenium_runtime.c" in generated:
+            raise AssertionError("generated C must not depend on the source-tree runtime path")
+
+        # Generated C should remain buildable after being copied outside the repository.
+        standalone = temp / "standalone executable"
+        run([str(wrapper), str(output), "-o", str(standalone), "-lm"])
+        result = run([str(standalone)])
+        if result.stdout != "Hello, World!\n":
+            raise AssertionError(f"standalone generated C did not run: {result.stdout!r}")
 
         missing = run([compiler, str(temp / "missing.sel"), "-o", str(output)], expected_status=1)
         if "cannot read source file" not in missing.stderr:
