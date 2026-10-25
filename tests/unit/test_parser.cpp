@@ -1,0 +1,11 @@
+#include <catch2/catch_test_macros.hpp>
+#include "../../src/lexer/tokenizer.h"
+#include "../../src/parser/parser.h"
+
+TEST_CASE("parser hello") {
+    Tokenizer t("whisper \"Hello, World!\";");
+    auto toks = t.tokenize();
+    Parser p(toks);
+    auto prog = p.parse();
+    REQUIRE(prog.items.size() == 1);
+}

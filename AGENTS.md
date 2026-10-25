@@ -6,7 +6,7 @@ Guidance for AI coding agents working in **selenium**.
 
 an esoteric programming language with a lunar poetic theme that compiles to C.
 
-- Language: Python
+- Language: C++
 - Default branch: main
 
 ## Working rules
