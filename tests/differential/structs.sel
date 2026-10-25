@@ -1,0 +1,11 @@
+frame Point {
+    int x;
+    int y;
+};
+wax Point p = {3, 4};
+p.x = p.x + 10;
+whisper p.x;
+whisper p.y;
+wax Point* pp = &p;
+pp->y = 20;
+whisper p.y;

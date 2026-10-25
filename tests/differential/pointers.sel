@@ -1,0 +1,10 @@
+wax int a = 4;
+wax int b = 9;
+wax int* p = &a;
+whisper *p;
+p = &b;
+whisper *p;
+*p = *p + 1;
+whisper b;
+seal int* q = &a;
+whisper *q;

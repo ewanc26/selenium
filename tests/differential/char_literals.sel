@@ -1,0 +1,7 @@
+seal char a = 'A';
+seal char nl = '\n';
+seal char q = '\'';
+whisper a;
+whisper q;
+whisper a + 1;
+whisper nl;

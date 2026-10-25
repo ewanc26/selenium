@@ -1,0 +1,7 @@
+alias Count = int;
+alias Ptr = int*;
+seal Count n = 7;
+wax Count m = n + 1;
+wax Ptr p = &m;
+*p = 9;
+whisper m;

@@ -1,0 +1,7 @@
+wax int a = 7;
+wax int b = 3;
+whisper a > b ? a : b;
+whisper a < b ? 1 : 0;
+wax int m = a > 5 ? (b > 2 ? 10 : 20) : 30;
+whisper m;
+whisper a > b;

@@ -1,0 +1,6 @@
+phase Color { Red, Green = 5, Blue };
+seal Color c = Green;
+whisper c;
+wax Color d = Blue;
+whisper d;
+whisper Blue - Red;

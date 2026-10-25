@@ -1,0 +1,7 @@
+fusion Cell {
+    int count;
+    char tag;
+};
+wax Cell c = {41};
+c.count = c.count + 1;
+whisper c.count;

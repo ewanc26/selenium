@@ -1,0 +1,7 @@
+whisper 42;
+whisper 0x1F;
+whisper 0b101;
+whisper 017;
+whisper 1000000;
+whisper 2.5;
+whisper 1e3;

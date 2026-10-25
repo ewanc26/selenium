@@ -1,0 +1,9 @@
+frame Point {
+    int x;
+    int y;
+};
+seal Point[2] pts = [{1, 2}, {3, 4}];
+whisper pts[0].x;
+whisper pts[1].y;
+wax int[3] zeros = [0, 0, 0];
+whisper zeros[2];

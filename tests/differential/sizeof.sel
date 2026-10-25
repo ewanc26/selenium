@@ -1,0 +1,10 @@
+frame Pair {
+    int a;
+    int b;
+};
+wax int n = measure(int);
+whisper n;
+whisper measure(char);
+wax int[5] arr = [1, 2, 3, 4, 5];
+whisper measure(arr);
+whisper measure(Pair);

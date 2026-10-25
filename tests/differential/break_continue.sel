@@ -1,0 +1,13 @@
+wax int total = 0;
+orbit (wax int k = 0; k < 10; k++) {
+    eclipse (k == 3) { continue; };
+    eclipse (k == 6) { break; };
+    total = total + k;
+};
+whisper total;
+wax int n = 0;
+tide (n < 100) {
+    n = n + 1;
+    eclipse (n == 4) { break; };
+};
+whisper n;

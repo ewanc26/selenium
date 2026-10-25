@@ -1,0 +1,11 @@
+ritual add(int a, int b) -> int { return a + b; };
+ritual mul(int a, int b) -> int { return a * b; };
+ritual twice(int n) -> int { return n * 2; };
+ritual apply(ritual(int) -> int g, int v) -> int { return g(v); };
+seal ritual(int, int) -> int op = add;
+whisper op(2, 3);
+wax ritual(int, int) -> int f = mul;
+whisper f(4, 5);
+f = add;
+whisper f(4, 5);
+whisper apply(twice, 5);

@@ -1,0 +1,7 @@
+wax float x = 1.5;
+wax float y = 2.25;
+whisper x * y;
+seal single s = 0.5;
+whisper s + 1.0;
+seal ldouble big = 3.0;
+whisper big / 2.0;

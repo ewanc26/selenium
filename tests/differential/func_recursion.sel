@@ -1,0 +1,20 @@
+ritual fact(int n) -> int {
+    eclipse (n <= 1) { return 1; };
+    return n * fact(n - 1);
+};
+ritual fib(int n) -> int {
+    eclipse (n < 2) { return n; };
+    return fib(n - 1) + fib(n - 2);
+};
+ritual is_even(int n) -> bool {
+    eclipse (n == 0) { return true; };
+    return is_odd(n - 1);
+};
+ritual is_odd(int n) -> bool {
+    eclipse (n == 0) { return false; };
+    return is_even(n - 1);
+};
+whisper fact(5);
+whisper fib(10);
+whisper is_even(10);
+whisper is_odd(7);
