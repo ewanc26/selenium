@@ -75,7 +75,7 @@ TEST_CASE("sema accepts calls to functions declared later") {
 }
 
 TEST_CASE("sema accepts recursive function calls") {
-    auto program = parse_source("ritual count(int value) -> int { if (value) { return count(value - 1); } return 0; }");
+    auto program = parse_source("ritual count(int value) -> int { eclipse (value) { return count(value - 1); } return 0; }");
     SemanticAnalyzer sema;
     REQUIRE_NOTHROW(sema.analyze(program));
 }
