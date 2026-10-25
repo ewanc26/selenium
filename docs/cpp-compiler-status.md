@@ -13,7 +13,7 @@ This is an implementation-status note for the C++20 compiler, not a claim that t
 
 ## Incomplete or not yet verified
 
-- `src/sema/sema.cpp` is currently a placeholder; undefined names, incompatible types, invalid control flow, and other semantic errors are not comprehensively checked.
+- `src/sema/sema.cpp` now checks variable declarations/references across nested scopes, duplicate variables/parameters, `return` outside functions, and `break`/`continue` context. Type compatibility, function-call declarations/signatures, lvalue validity, goto/label resolution, and full control-flow analysis are still incomplete.
 - The full differential suite still points at the removed Python package and has not been ported to the C++ executable.
 - The C++ parser/code generator contains broader syntax than the smoke suite currently verifies. Do not treat the README language reference or `capabilities.json` as proof of full feature parity.
 - Runtime behavior for arrays, pointers, aggregates, FFI, type conversions, and advanced control flow requires focused C++ end-to-end regression tests before being marked complete.
