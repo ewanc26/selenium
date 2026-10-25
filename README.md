@@ -236,7 +236,7 @@ tests/differential/       – .sel programs paired with C reference programs
 examples/                 – sample .sel programs
 ```
 
-The documented C++ build target is build/seleniumc. The compiler still has migration gaps: its CLI references a runtime source file that is not present in the repository, and the old Python test harnesses need to be wired to the C++ executable. See https://github.com/ewanc26/selenium/issues/14 for tracked work.
+The documented C++ build target is `build/seleniumc`. The runtime helpers are checked in, but the C++ migration still has gaps: semantic analysis is a placeholder and the full differential suite has not been ported to the C++ executable. See [the C++ compiler status](docs/cpp-compiler-status.md) and [issue #14](https://github.com/ewanc26/selenium/issues/14).
 
 ## Notes
 
