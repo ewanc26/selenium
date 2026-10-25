@@ -29,7 +29,7 @@ TEST_CASE("sema accepts a function that references a later global variable") {
 TEST_CASE("sema rejects duplicate global variables") {
     auto program = parse_source("wax int global = 1; wax int global = 2;");
     SemanticAnalyzer sema;
-    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("redeclaration of global variable 'global'"));
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("redeclaration of variable 'global'"));
 }
 
 TEST_CASE("sema accepts a declared variable") {
