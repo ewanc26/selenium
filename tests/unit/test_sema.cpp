@@ -14,6 +14,24 @@ Program parse_source(const std::string &source) {
 }
 }
 
+TEST_CASE("sema accepts a global variable referenced before declaration") {
+    auto program = parse_source("whisper global; wax int global = 5;");
+    SemanticAnalyzer sema;
+    REQUIRE_NOTHROW(sema.analyze(program));
+}
+
+TEST_CASE("sema accepts a function that references a later global variable") {
+    auto program = parse_source("ritual read_global() -> int { return global; } wax int global = 5;");
+    SemanticAnalyzer sema;
+    REQUIRE_NOTHROW(sema.analyze(program));
+}
+
+TEST_CASE("sema rejects duplicate global variables") {
+    auto program = parse_source("wax int global = 1; wax int global = 2;");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("redeclaration of global variable 'global'"));
+}
+
 TEST_CASE("sema accepts a declared variable") {
     auto program = parse_source("wax int value = 5; whisper value;");
     SemanticAnalyzer sema;
