@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 from .ast import FunctionDecl
-from .codegen_c import CCodeGenerator, CodegenContext
+from .codegen_c import CCodeGenerator, CodegenContext, CodegenError
 from .parser import ParseError, Parser
 from .sema import SemanticAnalyzer, SemanticError
 
@@ -89,7 +89,7 @@ def main(argv: list[str] | None = None) -> int:
     except OSError as exc:
         print(f"seleniumc: {exc}", file=sys.stderr)
         return 1
-    except (ParseError, SemanticError, CompileError) as exc:
+    except (ParseError, SemanticError, CodegenError, CompileError) as exc:
         print(f"seleniumc: {exc}", file=sys.stderr)
         return 1
 

@@ -26,14 +26,14 @@ ritual link(Rec* xs, int n) -> void {
         xs[i].next = &xs[i + 1];
         i = i + 1;
     };
-    xs[n - 1].next = cast(Rec*, 0);
+    xs[n - 1].next = nullptr;
 };
 
 ritual walk(Rec* head) -> int {
     wax int total = 0;
     wax int rank = 1;
     wax Rec* cur = head;
-    tide (cur != cast(Rec*, 0)) {
+    tide (cur != nullptr) {
         total = total + rank * cur->score;
         whisper cur->name;
         cur = cur->next;
@@ -42,14 +42,15 @@ ritual walk(Rec* head) -> int {
     return total;
 };
 
+wax Rec[5] table = [
+    {"ada", 72, nullptr},
+    {"brin", 91, nullptr},
+    {"cole", 58, nullptr},
+    {"dara", 91, nullptr},
+    {"eli", 66, nullptr}
+];
+
 ritual main_program() -> void {
-    wax Rec[5] table = [
-        {"ada", 72, cast(Rec*, 0)},
-        {"brin", 91, cast(Rec*, 0)},
-        {"cole", 58, cast(Rec*, 0)},
-        {"dara", 91, cast(Rec*, 0)},
-        {"eli", 66, cast(Rec*, 0)}
-    ];
     sort_by_score(&table[0], 5);
     link(&table[0], 5);
     whisper walk(&table[0]);

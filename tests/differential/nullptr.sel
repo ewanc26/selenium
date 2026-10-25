@@ -1,0 +1,51 @@
+// nullptr as the C null pointer constant: pointer and function-pointer
+// initialisation, comparison, assignment, ternary arms and passing.
+frame Node {
+    int value;
+    Node* next;
+};
+
+ritual add_one(int n) -> int { return n + 1; };
+
+ritual find(Node* head, int target) -> bool {
+    wax Node* cur = head;
+    tide (cur != nullptr) {
+        eclipse (cur->value == target) {
+            return true;
+        };
+        cur = cur->next;
+    };
+    return false;
+};
+
+ritual main_program() -> void {
+    wax Node* empty = nullptr;
+    seal Node* sealed = nullptr;
+    wax Node tail = {3, nullptr};
+    wax Node mid = {2, &tail};
+    wax Node head = {1, &mid};
+    wax Node* first = &head;
+    whisper empty == nullptr;
+    whisper sealed == empty;
+    whisper first != nullptr;
+    whisper find(first, 3);
+    whisper find(empty, 3);
+    wax ritual(int) -> int op = nullptr;
+    whisper op == nullptr;
+    op = add_one;
+    whisper op != nullptr;
+    whisper op(41);
+    wax int total = 0;
+    wax Node* cur = first;
+    tide (cur != nullptr) {
+        total = total + cur->value;
+        cur = cur->next;
+    };
+    whisper total;
+    wax Node* pick = first == nullptr ? nullptr : first;
+    whisper pick == nullptr;
+    pick = nullptr;
+    whisper pick == nullptr;
+};
+
+main_program();

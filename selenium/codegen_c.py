@@ -156,27 +156,75 @@ class CCodeGenerator:
         return "\n".join(self.lines) + "\n"
 
     def _is_static_init(self, expr: Expr) -> bool:
-        """True when ``expr`` is a constant expression valid at file scope."""
-        if isinstance(expr, (Literal, SizeofExpr)):
-            return True
-        if isinstance(expr, Unary):
-            return expr.op in ("-", "+", "~", "!") and self._is_static_init(expr.expr)
-        if isinstance(expr, Cast):
+        """True when ``expr`` is valid as a file-scope initialiser in C.
+
+        Arithmetic constants, address constants and brace lists of those are
+        accepted. Anything else is assigned at run time in ``main``."""
+        if isinstance(expr, (ArrayLit, BraceLit)):
+            return all(self._is_static_init(e) for e in expr.elements)
+        if isinstance(expr, Cast) and self._is_pointer_cast(expr):
             return self._is_static_init(expr.expr)
+        return self._is_address_const(expr) or self._is_arith_const(expr)
+
+    def _is_arith_const(self, expr: Expr) -> bool:
+        """True for integer or floating constant expressions."""
+        if isinstance(expr, Literal):
+            return expr.kind in ("int", "float", "char", "bool")
+        if isinstance(expr, SizeofExpr):
+            return True
+        if isinstance(expr, VarRef):
+            return self._global_kind(expr.name) == "const"
+        if isinstance(expr, Unary):
+            return expr.op in ("-", "+", "~", "!") and self._is_arith_const(expr.expr)
+        if isinstance(expr, Cast):
+            return not self._is_pointer_cast(expr) and self._is_arith_const(expr.expr)
         if isinstance(expr, Binary):
             return (
                 expr.op != ","
-                and self._is_static_init(expr.left)
-                and self._is_static_init(expr.right)
+                and self._is_arith_const(expr.left)
+                and self._is_arith_const(expr.right)
             )
         if isinstance(expr, Ternary):
             return all(
-                self._is_static_init(e)
+                self._is_arith_const(e)
                 for e in (expr.condition, expr.then_expr, expr.else_expr)
             )
-        if isinstance(expr, (ArrayLit, BraceLit)):
-            return all(self._is_static_init(e) for e in expr.elements)
         return False
+
+    def _is_address_const(self, expr: Expr) -> bool:
+        """True for string literals, nullptr, function names and ``&object``."""
+        if isinstance(expr, Literal):
+            return expr.kind in ("string", "nullptr")
+        if isinstance(expr, VarRef):
+            return self._global_kind(expr.name) == "fn"
+        if isinstance(expr, Unary) and expr.op == "&":
+            return self._is_static_object(expr.expr)
+        return False
+
+    def _is_static_object(self, expr: Expr) -> bool:
+        """True when ``expr`` designates an object with static storage."""
+        if isinstance(expr, VarRef):
+            return self._global_kind(expr.name) == "var"
+        if isinstance(expr, Index):
+            target_type = self.ctx.expr_types.get(id(expr.target))
+            return (
+                target_type is not None
+                and bool(target_type.dims)
+                and self._is_static_object(expr.target)
+                and self._is_arith_const(expr.index)
+            )
+        if isinstance(expr, Member):
+            return not expr.arrow and self._is_static_object(expr.target)
+        return False
+
+    def _is_pointer_cast(self, expr: Cast) -> bool:
+        target = self._resolve(expr.target_type)
+        return target.pointer > 0 or target.fn is not None
+
+    def _global_kind(self, name: str) -> Optional[str]:
+        """Symbol kind of a file-scope name, or None when it is not global."""
+        symbol = self.ctx.analyzer.globals.symbols.get(name)
+        return None if symbol is None else symbol.kind
 
     # ── Prelude ───────────────────────────────────────────────────
 
@@ -422,6 +470,10 @@ class CCodeGenerator:
 
     def _expr(self, expr: Expr) -> str:
         if isinstance(expr, Literal):
+            if expr.kind == "nullptr":
+                # The null pointer constant. Emitted as NULL so the output does
+                # not depend on the C23 keyword being available by default.
+                return "NULL"
             if expr.kind == "string":
                 return _c_string(expr.value)
             if expr.kind == "char":

@@ -100,20 +100,20 @@ static int evaluate(const char *src, struct Op *ops) {
     }
     return stack[0];
 }
+struct Op ops[4] = {
+    {"add", add_op},
+    {"sub", sub_op},
+    {"mul", mul_op},
+    {"div", div_op},
+};
+const char *exprs[5] = {
+    "3 4 + 2 *",
+    "5 1 2 + 4 * + 3 -",
+    "9 3 / 7 -",
+    "6 2 / 1 +",
+    "8 0 /",
+};
 static void main_program(void) {
-    struct Op ops[4] = {
-        {"add", add_op},
-        {"sub", sub_op},
-        {"mul", mul_op},
-        {"div", div_op},
-    };
-    const char *exprs[5] = {
-        "3 4 + 2 *",
-        "5 1 2 + 4 * + 3 -",
-        "9 3 / 7 -",
-        "6 2 / 1 +",
-        "8 0 /",
-    };
     int i = 0;
     while (i < 5) {
         printf("%d\n", evaluate(exprs[i], &ops[0]));

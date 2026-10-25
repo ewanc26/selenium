@@ -109,20 +109,22 @@ ritual evaluate(string src, Op* ops) -> int {
     return stack[0];
 };
 
+wax Op[4] ops = [
+    {"add", add_op},
+    {"sub", sub_op},
+    {"mul", mul_op},
+    {"div", div_op}
+];
+
+wax string[5] exprs = [
+    "3 4 + 2 *",
+    "5 1 2 + 4 * + 3 -",
+    "9 3 / 7 -",
+    "6 2 / 1 +",
+    "8 0 /"
+];
+
 ritual main_program() -> void {
-    wax Op[4] ops = [
-        {"add", add_op},
-        {"sub", sub_op},
-        {"mul", mul_op},
-        {"div", div_op}
-    ];
-    wax string[5] exprs = [
-        "3 4 + 2 *",
-        "5 1 2 + 4 * + 3 -",
-        "9 3 / 7 -",
-        "6 2 / 1 +",
-        "8 0 /"
-    ];
     wax int i = 0;
     tide (i < 5) {
         whisper evaluate(exprs[i], &ops[0]);

@@ -154,7 +154,8 @@
         "selenium": {
           "status": "implemented",
           "tests": [
-            "tests/differential/pointers.sel"
+            "tests/differential/pointers.sel",
+            "tests/differential/nullptr.sel"
           ]
         },
         "sigi": {
@@ -258,7 +259,8 @@
         "selenium": {
           "status": "implemented",
           "tests": [
-            "tests/differential/initializers.sel"
+            "tests/differential/initializers.sel",
+            "tests/differential/global_addresses.sel"
           ]
         },
         "sigi": {
@@ -963,7 +965,8 @@
         "selenium": {
           "status": "implemented",
           "tests": [
-            "tests/differential/ffi_call.sel"
+            "tests/differential/ffi_call.sel",
+            "tests/test_declarations.py"
           ]
         },
         "sigi": {
