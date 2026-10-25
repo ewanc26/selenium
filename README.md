@@ -10,10 +10,11 @@ It compiles to C via a C++ compiler.
 ## Installation
 
 ```sh
-pip install -e .
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
 ```
 
-This installs the `seleniumc` command.
+The binary is `build/seleniumc`.
 
 ---
 
