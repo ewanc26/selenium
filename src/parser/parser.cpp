@@ -500,5 +500,5 @@ std::shared_ptr<Expr> Parser::parsePrimary() {
         expect(")", "expected )");
         return e;
     }
-    throw std::runtime_error("unexpected token in expression at line " + std::to_string(peek().line));
+    throw std::runtime_error("unexpected token " + peek().kind + " (\"" + peek().value + "\") in expression at line " + std::to_string(peek().line));
 }
