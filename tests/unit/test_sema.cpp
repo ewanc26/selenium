@@ -68,6 +68,24 @@ TEST_CASE("sema rejects continue outside a loop") {
     REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("continue outside a loop"));
 }
 
+TEST_CASE("sema rejects a value returned from a void function") {
+    auto program = parse_source("ritual no_value() -> void { return 1; }");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("void function cannot return a value"));
+}
+
+TEST_CASE("sema rejects a missing value returned from a non-void function") {
+    auto program = parse_source("ritual needs_value() -> int { return; }");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("non-void function must return a value"));
+}
+
+TEST_CASE("sema accepts an empty return in a void function") {
+    auto program = parse_source("ritual no_value() -> void { return; }");
+    SemanticAnalyzer sema;
+    REQUIRE_NOTHROW(sema.analyze(program));
+}
+
 TEST_CASE("sema rejects return outside a function") {
     auto program = parse_source("return 1;");
     SemanticAnalyzer sema;
