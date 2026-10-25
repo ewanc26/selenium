@@ -22,8 +22,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/char_literals.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -46,8 +48,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/sized_integers.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -70,8 +74,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/floating.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -94,8 +100,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/enums.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -118,8 +126,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/typedef.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -142,8 +152,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/pointers.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -166,8 +178,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/structs.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -190,8 +204,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/unions.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -214,8 +230,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/sizeof.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -238,8 +256,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/initializers.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -262,8 +282,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/multidim_arrays.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -286,8 +308,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/storage_qualifiers.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -310,8 +334,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/ternary.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -334,8 +360,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/compound_assign.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -358,8 +386,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/incdec.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -382,8 +412,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/casts.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -406,8 +438,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/comma.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -430,8 +464,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/switch.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -454,8 +490,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/do_while.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -478,8 +516,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/break_continue.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -502,8 +542,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/goto.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -526,8 +568,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/func_pointers.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -550,8 +594,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/func_recursion.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -574,8 +620,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/literals_numeric.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
@@ -599,8 +647,10 @@
           "note": "not started"
         },
         "selenium": {
-          "status": "missing",
-          "note": "not started"
+          "status": "implemented",
+          "tests": [
+            "tests/differential/literals_escapes.sel"
+          ]
         },
         "sigi": {
           "status": "missing",
