@@ -1,0 +1,66 @@
+// Record table: insertion sort by score (descending), then a linked
+// traversal threaded through the same array of structs.
+frame Rec {
+    string name;
+    int score;
+    Rec* next;
+};
+
+ritual sort_by_score(Rec* xs, int n) -> void {
+    wax int i = 1;
+    tide (i < n) {
+        wax Rec key = xs[i];
+        wax int j = i - 1;
+        tide (j >= 0 && xs[j].score < key.score) {
+            xs[j + 1] = xs[j];
+            j = j - 1;
+        };
+        xs[j + 1] = key;
+        i = i + 1;
+    };
+};
+
+ritual link(Rec* xs, int n) -> void {
+    wax int i = 0;
+    tide (i < n - 1) {
+        xs[i].next = &xs[i + 1];
+        i = i + 1;
+    };
+    xs[n - 1].next = cast(Rec*, 0);
+};
+
+ritual walk(Rec* head) -> int {
+    wax int total = 0;
+    wax int rank = 1;
+    wax Rec* cur = head;
+    tide (cur != cast(Rec*, 0)) {
+        total = total + rank * cur->score;
+        whisper cur->name;
+        cur = cur->next;
+        rank = rank + 1;
+    };
+    return total;
+};
+
+ritual main_program() -> void {
+    wax Rec[5] table = [
+        {"ada", 72, cast(Rec*, 0)},
+        {"brin", 91, cast(Rec*, 0)},
+        {"cole", 58, cast(Rec*, 0)},
+        {"dara", 91, cast(Rec*, 0)},
+        {"eli", 66, cast(Rec*, 0)}
+    ];
+    sort_by_score(&table[0], 5);
+    link(&table[0], 5);
+    whisper walk(&table[0]);
+    wax int i = 0;
+    wax int best = table[0].score;
+    tide (i < 5) {
+        eclipse (table[i].score == best) {
+            whisper table[i].name;
+        };
+        i = i + 1;
+    };
+};
+
+main_program();

@@ -1,0 +1,133 @@
+// RPN calculator: a switch-based tokenizer over a string literal feeds a
+// stack machine whose operators are dispatched through a table of function
+// pointers. Errors report on stdout and exit with a nonzero status.
+summon ritual exit(int code) -> void;
+
+frame Op {
+    string name;
+    ritual(int, int) -> int fn;
+};
+
+ritual add_op(int a, int b) -> int { return a + b; };
+ritual sub_op(int a, int b) -> int { return a - b; };
+ritual mul_op(int a, int b) -> int { return a * b; };
+ritual div_op(int a, int b) -> int {
+    eclipse (b == 0) {
+        whisper "error: division by zero";
+        exit(3);
+    };
+    return a / b;
+};
+
+ritual is_digit(char c) -> bool {
+    return c >= '0' && c <= '9';
+};
+
+// kinds: 0 = number (value in vals), 1 = operator (index into the Op table).
+ritual tokenize(string src, int* kinds, int* vals) -> int {
+    wax int count = 0;
+    wax int i = 0;
+    tide (src[i] != '\0') {
+        wax char c = src[i];
+        switch (c) {
+            case ' ': {
+                i = i + 1;
+                break;
+            };
+            case '+': {
+                kinds[count] = 1;
+                vals[count] = 0;
+                count = count + 1;
+                i = i + 1;
+                break;
+            };
+            case '-': {
+                kinds[count] = 1;
+                vals[count] = 1;
+                count = count + 1;
+                i = i + 1;
+                break;
+            };
+            case '*': {
+                kinds[count] = 1;
+                vals[count] = 2;
+                count = count + 1;
+                i = i + 1;
+                break;
+            };
+            case '/': {
+                kinds[count] = 1;
+                vals[count] = 3;
+                count = count + 1;
+                i = i + 1;
+                break;
+            };
+            default: {
+                eclipse (is_digit(c)) {
+                    wax int n = 0;
+                    tide (is_digit(src[i])) {
+                        n = n * 10 + cast(int, src[i]) - cast(int, '0');
+                        i = i + 1;
+                    };
+                    kinds[count] = 0;
+                    vals[count] = n;
+                    count = count + 1;
+                } shadow {
+                    whisper "error: bad character";
+                    exit(2);
+                };
+                break;
+            };
+        };
+    };
+    return count;
+};
+
+ritual evaluate(string src, Op* ops) -> int {
+    wax int[12] kinds = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    wax int[12] vals = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    wax int[12] stack = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    wax int ntok = tokenize(src, &kinds[0], &vals[0]);
+    wax int sp = 0;
+    wax int t = 0;
+    tide (t < ntok) {
+        eclipse (kinds[t] == 0) {
+            stack[sp] = vals[t];
+            sp = sp + 1;
+        } shadow {
+            eclipse (sp < 2) {
+                whisper "error: stack underflow";
+                exit(4);
+            };
+            wax int b = stack[sp - 1];
+            wax int a = stack[sp - 2];
+            stack[sp - 2] = ops[vals[t]].fn(a, b);
+            sp = sp - 1;
+        };
+        t = t + 1;
+    };
+    return stack[0];
+};
+
+ritual main_program() -> void {
+    wax Op[4] ops = [
+        {"add", add_op},
+        {"sub", sub_op},
+        {"mul", mul_op},
+        {"div", div_op}
+    ];
+    wax string[5] exprs = [
+        "3 4 + 2 *",
+        "5 1 2 + 4 * + 3 -",
+        "9 3 / 7 -",
+        "6 2 / 1 +",
+        "8 0 /"
+    ];
+    wax int i = 0;
+    tide (i < 5) {
+        whisper evaluate(exprs[i], &ops[0]);
+        i = i + 1;
+    };
+};
+
+main_program();
