@@ -7,7 +7,7 @@ This is an implementation-status note for the C++20 compiler, not a claim that t
 - CMake builds the `seleniumc` compiler and Catch2 unit-test binary.
 - `whisper "Hello, World!";` compiles to C and runs through the selected host C compiler.
 - Numeric output is covered by the CLI smoke test.
-- Generated C includes the checked-in `runtime/selenium_runtime.c` helper implementation.
+- Generated C embeds the checked-in runtime helper implementation, so a saved C file can be compiled outside the repository without depending on a source-tree include path.
 - `--run` uses a unique temporary directory, quotes shell arguments, and cleans temporary files.
 - CLI errors for missing source files and unknown options are tested.
 
