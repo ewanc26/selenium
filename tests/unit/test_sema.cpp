@@ -122,6 +122,30 @@ TEST_CASE("sema accepts recursive function calls") {
     REQUIRE_NOTHROW(sema.analyze(program));
 }
 
+TEST_CASE("sema accepts a goto to a label in the same function") {
+    auto program = parse_source("ritual sample(int value) -> int { drift finish; finish: return value; }");
+    SemanticAnalyzer sema;
+    REQUIRE_NOTHROW(sema.analyze(program));
+}
+
+TEST_CASE("sema rejects a goto to an undefined label") {
+    auto program = parse_source("drift missing;");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("goto to undefined label 'missing'"));
+}
+
+TEST_CASE("sema rejects duplicate labels in a function") {
+    auto program = parse_source("ritual sample() -> void { finish: ; finish: ; return; }");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("duplicate label 'finish'"));
+}
+
+TEST_CASE("sema does not allow a goto to cross function boundaries") {
+    auto program = parse_source("ritual first() -> void { shared: return; } ritual second() -> void { drift shared; return; }");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("goto to undefined label 'shared'"));
+}
+
 TEST_CASE("sema rejects a local variable after its scope ends") {
     auto program = parse_source("eclipse (true) { wax int local = 1; } whisper local;");
     SemanticAnalyzer sema;
