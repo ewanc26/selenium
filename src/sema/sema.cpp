@@ -24,6 +24,7 @@ void SemanticAnalyzer::analyze(Program &prog) {
     scopes.clear();
     scopes.emplace_back();
     functions.clear();
+    functionDefinitions.clear();
     functionArities.clear();
     predeclaredGlobals.clear();
     predeclaredEnumerators.clear();
@@ -44,6 +45,9 @@ void SemanticAnalyzer::analyze(Program &prog) {
             }
         } else if (const auto *fn = std::get_if<FunctionDeclStmt>(&item->node)) {
             functions.insert(fn->name);
+            if (fn->body && !functionDefinitions.insert(fn->name).second) {
+                error("duplicate definition of function '" + fn->name + "'", item->line, item->col);
+            }
             auto [it, inserted] = functionArities.emplace(fn->name, fn->params.size());
             if (!inserted && it->second != fn->params.size()) {
                 error("conflicting parameter count for function '" + fn->name + "'", item->line, item->col);
