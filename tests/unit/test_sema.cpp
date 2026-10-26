@@ -135,7 +135,7 @@ TEST_CASE("sema rejects a goto to an undefined label") {
 }
 
 TEST_CASE("sema rejects duplicate labels in a function") {
-    auto program = parse_source("ritual sample() -> void { finish: ; finish: ; return; }");
+    auto program = parse_source("ritual sample() -> void { finish: return; finish: return; }");
     SemanticAnalyzer sema;
     REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("duplicate label 'finish'"));
 }
