@@ -54,6 +54,10 @@ void SemanticAnalyzer::analyze(Program &prog) {
     switchDepth = 0;
     inFunction = false;
     currentReturnType.reset();
+    currentLabels.clear();
+    for (const auto &item : prog.items) {
+        if (item && !std::holds_alternative<FunctionDeclStmt>(item->node)) collectLabelsStmt(item);
+    }
     for (const auto &item : prog.items) analyzeStmt(item);
 }
 
@@ -62,6 +66,38 @@ void SemanticAnalyzer::analyzeBlock(std::shared_ptr<Block> block, bool createSco
     if (createScope) scopes.emplace_back();
     for (const auto &stmt : block->stmts) analyzeStmt(stmt);
     if (createScope) scopes.pop_back();
+}
+
+void SemanticAnalyzer::collectLabelsBlock(std::shared_ptr<Block> block) {
+    if (!block) return;
+    for (const auto &stmt : block->stmts) collectLabelsStmt(stmt);
+}
+
+void SemanticAnalyzer::collectLabelsStmt(std::shared_ptr<Stmt> stmt) {
+    if (!stmt) return;
+    std::visit([&](auto &node) {
+        using T = std::decay_t<decltype(node)>;
+        if constexpr (std::is_same_v<T, LabelStmt>) {
+            if (!currentLabels.insert(node.label).second) {
+                error("duplicate label '" + node.label + "'", stmt->line, stmt->col);
+            }
+            collectLabelsStmt(node.stmt);
+        } else if constexpr (std::is_same_v<T, IfStmt>) {
+            collectLabelsBlock(node.thenBlock);
+            collectLabelsBlock(node.elseBlock);
+        } else if constexpr (std::is_same_v<T, WhileStmt>) {
+            collectLabelsBlock(node.body);
+        } else if constexpr (std::is_same_v<T, DoWhileStmt>) {
+            collectLabelsBlock(node.body);
+        } else if constexpr (std::is_same_v<T, ForStmt>) {
+            collectLabelsStmt(node.init);
+            collectLabelsBlock(node.body);
+        } else if constexpr (std::is_same_v<T, SwitchStmt>) {
+            for (const auto &item : node.cases) collectLabelsBlock(item.body);
+        } else if constexpr (std::is_same_v<T, FunctionDeclStmt>) {
+            // Function labels are collected separately so a goto cannot cross function boundaries.
+        }
+    }, stmt->node);
 }
 
 void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
@@ -100,6 +136,10 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
             }
         } else if constexpr (std::is_same_v<T, ContinueStmt>) {
             if (loopDepth == 0) error("continue outside a loop", stmt->line, stmt->col);
+        } else if constexpr (std::is_same_v<T, GotoStmt>) {
+            if (currentLabels.find(node.label) == currentLabels.end()) {
+                error("goto to undefined label '" + node.label + "'", stmt->line, stmt->col);
+            }
         } else if constexpr (std::is_same_v<T, LabelStmt>) {
             analyzeStmt(node.stmt);
         } else if constexpr (std::is_same_v<T, IfStmt>) {
@@ -148,6 +188,9 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
             const auto previousReturnType = currentReturnType;
             const int previousLoopDepth = loopDepth;
             const int previousSwitchDepth = switchDepth;
+            const auto previousLabels = currentLabels;
+            currentLabels.clear();
+            collectLabelsBlock(node.body);
             inFunction = true;
             currentReturnType = node.retType;
             loopDepth = 0;
@@ -163,6 +206,7 @@ void SemanticAnalyzer::analyzeStmt(std::shared_ptr<Stmt> stmt) {
             scopes.pop_back();
             inFunction = previousFunction;
             currentReturnType = previousReturnType;
+            currentLabels = previousLabels;
             loopDepth = previousLoopDepth;
             switchDepth = previousSwitchDepth;
         } else {
