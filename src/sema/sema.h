@@ -19,6 +19,7 @@ private:
 
     std::vector<std::unordered_set<std::string>> scopes;
     std::unordered_set<std::string> functions;
+    std::unordered_set<std::string> functionDefinitions;
     std::unordered_map<std::string, std::size_t> functionArities;
     std::unordered_set<std::string> predeclaredGlobals;
     std::unordered_set<std::string> predeclaredEnumerators;
