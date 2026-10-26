@@ -98,6 +98,12 @@ TEST_CASE("sema rejects duplicate function parameters") {
     REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("duplicate parameter 'value'"));
 }
 
+TEST_CASE("sema rejects duplicate function definitions") {
+    auto program = parse_source("ritual sample() -> int { return 1; } ritual sample() -> int { return 2; }");
+    SemanticAnalyzer sema;
+    REQUIRE_THROWS_WITH(sema.analyze(program), Catch::Matchers::ContainsSubstring("duplicate definition of function 'sample'"));
+}
+
 TEST_CASE("sema rejects calls to undeclared functions") {
     auto program = parse_source("missing(1);");
     SemanticAnalyzer sema;
