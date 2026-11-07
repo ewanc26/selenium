@@ -20,4 +20,4 @@ an esoteric programming language with a lunar poetic theme that compiles to C.
 
 ## Recent history
 
-Sync AGENTS.md from zincfox; Sync AGENTS.md from zincfox; Sync AGENTS.md from zincfox; Sync CONTRIBUTING.md from zincfox; Sync CONTRIBUTING.md from zincfox
+Document duplicate function-definition diagnostics; Test duplicate function-definition diagnostics; Reject duplicate function definitions during semantic analysis; Track function definitions separately from prototypes; Document current semantic checks in README; Use valid labeled statements in duplicate-label test; Document goto and label semantic checks; Test goto target and label validation
