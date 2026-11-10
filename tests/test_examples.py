@@ -106,6 +106,10 @@ def test_example_output(name):
     assert result.stdout == EXPECTED_OUTPUT[name]
 
 
+FRAME_QUADS = 656  # canonical grid: ~41 ring slices x ~16 tube steps per frame
+FRAMES = 48
+
+
 def test_donut_engine_token_stream():
     # The live engine emits a finite F/P/S token stream the SDL2 host replays.
     result = _run_example(ROOT / "examples" / "donut_engine.sel")
@@ -114,12 +118,16 @@ def test_donut_engine_token_stream():
     # First frame is F, last token is S; every P carries 11 numeric arguments.
     assert toks[0] == "F" and toks[-1] == "S"
     frames = quads = 0
+    frame_quads = 0
     for t in toks:
         if t == "F":
+            assert frame_quads == FRAME_QUADS or frames == 0
             frames += 1
+            frame_quads = 0
         elif t == "P":
             quads += 1
-    assert frames == 40 and quads == 40 * 160, (frames, quads)
+            frame_quads += 1
+    assert frames == FRAMES and quads == FRAMES * FRAME_QUADS, (frames, quads)
     # Every P is followed by exactly 11 floats before the next token.
     i = 0
     while i < len(toks):
@@ -189,4 +197,16 @@ def test_donut_engine_pipeline_headless_render():
     assert host.returncode == 0, host.stderr
     assert "frames" in host.stderr and "quads" in host.stderr
     frames, quads = host.stderr.strip().split(": ")[1].split(" frames, ")
-    assert int(frames) == 40 and int(quads.split()[0]) == 40 * 160
+    assert int(frames) == FRAMES and int(quads.split()[0]) == FRAMES * FRAME_QUADS
+
+
+def test_donut_engine_matches_canonical_frames():
+    # Cross-language harmonisation: the engine's first 8 frames are
+    # byte-identical to the canonical sigi stream (vendored so CI needs
+    # no sigi checkout; frame 0 of the canonical starts at spin A=0.05).
+    result = _run_example(ROOT / "examples" / "donut_engine.sel")
+    assert result.returncode == 0, result.stderr
+    fixture = (ROOT / "tests" / "fixtures" / "donut_canonical_8f.txt").read_text()
+    fixture_lines = fixture.splitlines(keepends=True)
+    assert len(fixture_lines) == 8 * (2 + FRAME_QUADS * 12), len(fixture_lines)
+    assert result.stdout[: len(fixture)] == fixture

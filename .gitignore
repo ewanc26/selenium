@@ -67,6 +67,7 @@ coverage.xml
 *.c
 # SDL2 donut host source is real code, not a compiler output
 !host/donut_host.c
+!examples/donut_num.c
 *.out
 # Executables (no extension on macOS)
 seleniumc
