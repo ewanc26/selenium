@@ -1,7 +1,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-void selenium_print_int(int value) { printf("%d\n", value); }
+void selenium_print_int(long long value) { printf("%lld\n", value); }
 void selenium_print_float(double value) { printf("%.15g\n", value); }
 void selenium_print_bool(_Bool value) { puts(value ? "true" : "false"); }
 void selenium_print_char(char value) { putchar((unsigned char)value); putchar('\n'); }

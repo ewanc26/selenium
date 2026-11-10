@@ -1,6 +1,102 @@
 #include "c_emitter.h"
 #include <sstream>
 #include <iostream>
+#include <unordered_map>
+
+// Lightweight per-translation-unit variable type table. The emitter has no
+// scope tree yet, so a flat name->kind map records the declared type of
+// each variable as it is emitted; whisper uses it to pick the typed print
+// entry point. Collisions across functions resolve last-declared-wins,
+// which the current test corpus never exercises.
+static std::unordered_map<std::string, TypeKind> &var_types() {
+    static std::unordered_map<std::string, TypeKind> types;
+    return types;
+}
+
+// Function return-type table, used by the same print inference.
+static std::unordered_map<std::string, TypeKind> &func_ret_types() {
+    static std::unordered_map<std::string, TypeKind> types;
+    return types;
+}
+
+// The print family the runtime exposes; inferred from expression shape
+// plus the variable table rather than a full type system.
+enum class PType { Int, Float, Bool, Char, String };
+
+static PType ptype_of_kind(TypeKind kind) {
+    switch (kind) {
+        case TypeKind::Float:
+        case TypeKind::Single:
+        case TypeKind::LDouble: return PType::Float;
+        // Plain char prints its glyph; the sized char types print as
+        // numbers, matching the C references.
+        case TypeKind::Char: return PType::Char;
+        case TypeKind::Bool: return PType::Bool;
+        case TypeKind::String: return PType::String;
+        default: return PType::Int;
+    }
+}
+
+static PType infer_ptype(const std::shared_ptr<Expr> &e);
+
+static PType infer_ptype_node(const ExprNode &node) {
+    if (std::holds_alternative<IntLit>(node)) return PType::Int;
+    if (std::holds_alternative<FloatLit>(node)) return PType::Float;
+    if (std::holds_alternative<CharLit>(node)) return PType::Char;
+    if (std::holds_alternative<StringLit>(node)) return PType::String;
+    if (std::holds_alternative<BoolLit>(node)) return PType::Bool;
+    if (std::holds_alternative<VarRef>(node)) {
+        const auto &name = std::get<VarRef>(node).name;
+        auto it = var_types().find(name);
+        return it == var_types().end() ? PType::Int : ptype_of_kind(it->second);
+    }
+    if (std::holds_alternative<BinaryExpr>(node)) {
+        const auto &b = std::get<BinaryExpr>(node);
+        switch (b.op) {
+            case BinaryOp::Lt:
+            case BinaryOp::Le:
+            case BinaryOp::Gt:
+            case BinaryOp::Ge:
+            case BinaryOp::Eq:
+            case BinaryOp::Ne:
+            case BinaryOp::And:
+            case BinaryOp::Or:
+                return PType::Bool;
+            default:
+                if (infer_ptype(b.left) == PType::Float || infer_ptype(b.right) == PType::Float) {
+                    return PType::Float;
+                }
+                return PType::Int;
+        }
+    }
+    if (std::holds_alternative<UnaryExpr>(node)) {
+        const auto &u = std::get<UnaryExpr>(node);
+        if (u.op == UnaryOp::Not) return PType::Bool;
+        return infer_ptype(u.expr);
+    }
+    if (std::holds_alternative<PostfixExpr>(node)) {
+        return infer_ptype(std::get<PostfixExpr>(node).expr);
+    }
+    if (std::holds_alternative<CallExpr>(node)) {
+        const auto &name = std::get<CallExpr>(node).name;
+        auto it = func_ret_types().find(name);
+        return it == func_ret_types().end() ? PType::Int : ptype_of_kind(it->second);
+    }
+    if (std::holds_alternative<CastExpr>(node)) {
+        const auto &c = std::get<CastExpr>(node);
+        if (c.type) return ptype_of_kind(c.type->kind);
+        return PType::Int;
+    }
+    if (std::holds_alternative<TernaryExpr>(node)) {
+        return infer_ptype(std::get<TernaryExpr>(node).thenExpr);
+    }
+    return PType::Int;
+}
+
+static PType infer_ptype(const std::shared_ptr<Expr> &e) {
+    if (!e) return PType::Int;
+    return infer_ptype_node(e->node);
+}
 
 static std::string emitType(std::shared_ptr<TypeRef> t) {
     if (!t) return "void";
@@ -168,21 +264,30 @@ static void emitStmt(std::shared_ptr<Stmt> stmt, std::stringstream &ss, int inde
             ss << " = " << emitExpr(v.init);
         }
         ss << ";\n";
+        if (v.type) var_types()[v.name] = v.type->kind;
         return;
     }
     if (std::holds_alternative<PrintStmt>(stmt->node)) {
         auto &p = std::get<PrintStmt>(stmt->node);
         auto e = p.expr;
-        // determine type
         std::string exprs = emitExpr(e);
-        // try to be smart based on string literal
-        if (std::holds_alternative<StringLit>(e->node)) {
-            ss << ind(indent) << "selenium_print_string(" << exprs << ");\n";
-        } else if (std::holds_alternative<CharLit>(e->node)) {
-            ss << ind(indent) << "selenium_print_char(" << exprs << ");\n";
-        } else {
-            // default to int print for now
-            ss << ind(indent) << "selenium_print_int(" << exprs << ");\n";
+        // Pick the runtime print entry point from the inferred type.
+        switch (infer_ptype(e)) {
+            case PType::Float:
+                ss << ind(indent) << "selenium_print_float(" << exprs << ");\n";
+                break;
+            case PType::Bool:
+                ss << ind(indent) << "selenium_print_bool(" << exprs << ");\n";
+                break;
+            case PType::Char:
+                ss << ind(indent) << "selenium_print_char(" << exprs << ");\n";
+                break;
+            case PType::String:
+                ss << ind(indent) << "selenium_print_string(" << exprs << ");\n";
+                break;
+            case PType::Int:
+                ss << ind(indent) << "selenium_print_int(" << exprs << ");\n";
+                break;
         }
         return;
     }
@@ -277,7 +382,7 @@ std::string emitProgram(const Program &prog) {
     ss << "#include <stdio.h>\n#include <stdlib.h>\n#include <stdbool.h>\n#include <math.h>\n#include <string.h>\n\n";
     ss << "#ifndef NULL\n#define NULL ((void*)0)\n#endif\n\n";
     // include runtime
-    ss << "void selenium_print_int(int);\nvoid selenium_print_float(double);\nvoid selenium_print_bool(_Bool);\nvoid selenium_print_char(char);\nvoid selenium_print_string(const char *);\nint selenium_read_int();\ndouble selenium_read_float();\n_Bool selenium_read_bool();\nchar selenium_read_char();\n\n";
+    ss << "void selenium_print_int(long long);\nvoid selenium_print_float(double);\nvoid selenium_print_bool(_Bool);\nvoid selenium_print_char(char);\nvoid selenium_print_string(const char *);\nint selenium_read_int();\ndouble selenium_read_float();\n_Bool selenium_read_bool();\nchar selenium_read_char();\n\n";
     
     // forward decls for functions
     std::vector<std::shared_ptr<Stmt>> funcs;
@@ -325,6 +430,7 @@ std::string emitProgram(const Program &prog) {
                 ss << " = " << emitExpr(v.init);
             }
             ss << ";\n";
+            if (v.type) var_types()[v.name] = v.type->kind;
         } else if (std::holds_alternative<StructDeclStmt>(it->node)) {
             auto &s = std::get<StructDeclStmt>(it->node);
             ss << "struct " << s.name << " {\n";
@@ -354,6 +460,7 @@ std::string emitProgram(const Program &prog) {
     // function definitions
     for (auto &it : funcs) {
         auto &fn = std::get<FunctionDeclStmt>(it->node);
+        if (fn.retType) func_ret_types()[fn.name] = fn.retType->kind;
         if (!fn.body) continue;
         ss << emitType(fn.retType) << " " << fn.name << "(";
         for (size_t i=0;i<fn.params.size();i++) {

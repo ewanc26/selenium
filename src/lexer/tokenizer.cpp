@@ -133,8 +133,31 @@ Token Tokenizer::readString() {
             else if (e == 'r') s += '\r';
             else if (e == '\\') s += '\\';
             else if (e == '"') s += '"';
-            else if (e == '0') s += '\0';
-            else s += e;
+            else if (e == '\'') s += '\'';
+            else if (e >= '0' && e <= '7') {
+                // octal escape: up to three octal digits total (\0, \101, ...)
+                int v = e - '0';
+                int digits = 1;
+                while (digits < 3 && !eof() && peek() >= '0' && peek() <= '7') {
+                    v = v * 8 + (advance() - '0');
+                    digits++;
+                }
+                s += static_cast<char>(v);
+            } else if (e == 'x' || e == 'X') {
+                // hex escape: one or more hex digits (\x41, ...)
+                int v = 0;
+                bool any = false;
+                while (!eof() && std::isxdigit(static_cast<unsigned char>(peek()))) {
+                    char h = advance();
+                    int d = std::isdigit(static_cast<unsigned char>(h))
+                                ? h - '0'
+                                : (std::tolower(static_cast<unsigned char>(h)) - 'a' + 10);
+                    v = v * 16 + d;
+                    any = true;
+                }
+                if (!any) s += e; // lone \x: keep as-is
+                else s += static_cast<char>(v);
+            } else s += e;
         } else {
             s += advance();
         }
