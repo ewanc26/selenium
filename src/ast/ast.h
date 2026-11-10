@@ -72,11 +72,13 @@ struct CallExpr { std::string name; std::vector<std::shared_ptr<Expr>> args; };
 struct CastExpr { std::string typeName; std::shared_ptr<Expr> expr; std::shared_ptr<TypeRef> type; };
 struct SizeofExpr { std::shared_ptr<TypeRef> type; std::shared_ptr<Expr> expr; };
 struct TernaryExpr { std::shared_ptr<Expr> cond; std::shared_ptr<Expr> thenExpr; std::shared_ptr<Expr> elseExpr; };
+// Assignment as an expression, for the increment slot of for-loops.
+struct AssignExpr { std::shared_ptr<Expr> target; std::shared_ptr<Expr> value; };
 
 using ExprNode = std::variant<
     IntLit, FloatLit, CharLit, StringLit, BoolLit, NullptrLit,
     VarRef, UnaryExpr, BinaryExpr, PostfixExpr, IndexExpr, MemberExpr, CallExpr,
-    CastExpr, SizeofExpr, TernaryExpr
+    CastExpr, SizeofExpr, TernaryExpr, AssignExpr
 >;
 
 struct Expr {

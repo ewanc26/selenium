@@ -90,6 +90,9 @@ static PType infer_ptype_node(const ExprNode &node) {
     if (std::holds_alternative<TernaryExpr>(node)) {
         return infer_ptype(std::get<TernaryExpr>(node).thenExpr);
     }
+    if (std::holds_alternative<AssignExpr>(node)) {
+        return infer_ptype(std::get<AssignExpr>(node).target);
+    }
     return PType::Int;
 }
 
@@ -246,6 +249,10 @@ static std::string emitExprNode(const ExprNode &node) {
     if (std::holds_alternative<TernaryExpr>(node)) {
         auto &t = std::get<TernaryExpr>(node);
         return "(" + emitExpr(t.cond) + "?" + emitExpr(t.thenExpr) + ":" + emitExpr(t.elseExpr) + ")";
+    }
+    if (std::holds_alternative<AssignExpr>(node)) {
+        auto &a = std::get<AssignExpr>(node);
+        return "(" + emitExpr(a.target) + " = " + emitExpr(a.value) + ")";
     }
     if (std::holds_alternative<CastExpr>(node)) {
         auto &c = std::get<CastExpr>(node);

@@ -218,7 +218,19 @@ std::shared_ptr<Stmt> Parser::parseStatement() {
         else if (check("SEAL")) { advance(); init = parseVarDecl(false); }
         else { init = nullptr; /* maybe empty */ }
         auto cond = parseExpression(); expect(";", "expected ;");
-        auto incr = parseExpression(); expect(")", "expected )");
+        // The increment slot also accepts an assignment: i = i + 1
+        std::shared_ptr<Expr> incr;
+        if (check("IDENT") && peek(1).kind == "=") {
+            const std::string name = peek().value;
+            advance(); advance();
+            auto target = std::make_shared<Expr>();
+            target->node = VarRef{name};
+            incr = std::make_shared<Expr>();
+            incr->node = AssignExpr{target, parseExpression()};
+        } else if (!check(")")) {
+            incr = parseExpression();
+        }
+        expect(")", "expected )");
         auto body = parseBlock();
         auto s = std::make_shared<Stmt>(); s->node = ForStmt{init, cond, incr, body};
         if (match(";")) {}
