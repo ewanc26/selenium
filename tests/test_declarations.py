@@ -1,3 +1,4 @@
+import json
 import pathlib
 import shutil
 import subprocess
@@ -6,6 +7,17 @@ import sys
 import pytest
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+_MATRIX = json.loads((ROOT / "capabilities.json").read_text(encoding="utf-8"))
+_CELLS = {row["id"]: row["cells"]["selenium"] for row in _MATRIX["rows"]}
+
+
+def require_row(row_id: str) -> None:
+    """Skip tests whose capability row is not yet implemented in the C++ port."""
+    status = _CELLS[row_id]["status"]
+    if status != "implemented":
+        pytest.skip(f"capability row {row_id} is {status}")
+
 
 pytestmark = pytest.mark.skipif(
     shutil.which("clang") is None and shutil.which("gcc") is None,
@@ -29,6 +41,7 @@ def _run(source: pathlib.Path) -> subprocess.CompletedProcess:
 
 
 def test_top_level_summon_links_c_source(tmp_path):
+    require_row("ffi.call-c")
     (tmp_path / "helper.c").write_text("int triple(int n) { return n * 3; }\n")
     program = tmp_path / "main.sel"
     program.write_text(
@@ -60,6 +73,7 @@ def test_function_declarations_are_rejected_inside_blocks(tmp_path, block):
 
 
 def test_non_constant_global_element_is_a_clean_error(tmp_path):
+    require_row("types.fixed-arrays")
     program = tmp_path / "nonconst.sel"
     program.write_text(
         "wax int a = 1;\n"

@@ -1,8 +1,6 @@
-// Goto and labels: jump to a labelled block.
+// Goto and labels: jump over a statement to a labelled one.
 
 wax int x = 0;
 drift skip;
 x = 42;
-skip: {
-    whisper x;
-};
+skip: whisper x;
