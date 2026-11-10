@@ -1,0 +1,17 @@
+// Primes from 2 to 30: a boolean-valued ritual with an early-return divisor loop.
+ritual is_prime(int n) -> bool {
+    wax int d = 2;
+    tide (d < n) {
+        eclipse (n % d == 0) {
+            return false;
+        };
+        d = d + 1;
+    };
+    return true;
+};
+
+orbit (wax int n = 2; n <= 30; n = n + 1) {
+    eclipse (is_prime(n)) {
+        whisper n;
+    };
+};

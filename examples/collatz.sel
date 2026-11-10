@@ -1,0 +1,11 @@
+// Collatz from 27 down to 1: a while loop with arithmetic and parity branches.
+wax int n = 27;
+tide (n != 1) {
+    whisper n;
+    eclipse (n % 2 == 0) {
+        n = n / 2;
+    } shadow {
+        n = 3 * n + 1;
+    };
+};
+whisper n;

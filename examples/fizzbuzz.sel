@@ -1,0 +1,16 @@
+// FizzBuzz from 1 to 15: for loops, remainder tests, and nested if-else.
+orbit (wax int i = 1; i <= 15; i++) {
+    eclipse (i % 3 == 0) {
+        eclipse (i % 5 == 0) {
+            whisper "FizzBuzz";
+        } shadow {
+            whisper "Fizz";
+        };
+    } shadow {
+        eclipse (i % 5 == 0) {
+            whisper "Buzz";
+        } shadow {
+            whisper i;
+        };
+    };
+};

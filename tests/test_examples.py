@@ -20,7 +20,44 @@ EXPECTED_OUTPUT = {
     "hello_world": "Hello, World!\n",
     "factorial": "120\n",
     "char": "A\n65\n",
+    "primes": "\n".join(["2", "3", "5", "7", "11", "13", "17", "19", "23", "29"])
+    + "\n",
+    "fizzbuzz": "\n".join(
+        [
+            "1",
+            "2",
+            "Fizz",
+            "4",
+            "Buzz",
+            "Fizz",
+            "7",
+            "8",
+            "Fizz",
+            "Buzz",
+            "11",
+            "Fizz",
+            "13",
+            "14",
+            "FizzBuzz",
+        ]
+    )
+    + "\n",
 }
+
+
+def test_collatz_trajectory():
+    # The example walks the canonical 27 trajectory: 112 values, ending at 1.
+    result = _run_example(ROOT / "examples" / "collatz.sel")
+    assert result.returncode == 0, result.stderr
+    values = result.stdout.split()
+    assert len(values) == 112, len(values)
+    assert values[0] == "27" and values[-1] == "1"
+    for a, b in zip(values, values[1:]):
+        if int(a) % 2 == 0:
+            assert int(b) == int(a) // 2, (a, b)
+        else:
+            assert int(b) == 3 * int(a) + 1, (a, b)
+
 
 pytestmark = pytest.mark.skipif(
     shutil.which("clang") is None and shutil.which("gcc") is None,
