@@ -3,8 +3,10 @@
 #include "../sema/sema.h"
 #include "../codegen/c_emitter.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
+#include <vector>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -128,6 +130,29 @@ int main(int argc, char **argv) {
         auto program = parser.parse();
         SemanticAnalyzer sema;
         sema.analyze(program);
+
+        // Summoned symbols are declared extern in the generated C, but the
+        // referenced C source must also be linked into the build for the
+        // symbols to resolve. Collect each `from "file.c"` source, resolved
+        // relative to the input file's directory.
+        std::vector<std::string> summon_sources;
+        const auto input_dir = std::filesystem::absolute(input).parent_path();
+        for (const auto &item : program.items) {
+            if (!std::holds_alternative<FunctionDeclStmt>(item->node)) continue;
+            const auto &fn = std::get<FunctionDeclStmt>(item->node);
+            if (fn.body || !fn.source) continue;
+            auto path = std::filesystem::path(*fn.source);
+            if (path.is_relative()) path = input_dir / path;
+            if (!std::filesystem::exists(path)) {
+                throw std::runtime_error("summoned C source not found: " + path.string());
+            }
+            std::string resolved = std::filesystem::weakly_canonical(path).string();
+            if (std::find(summon_sources.begin(), summon_sources.end(), resolved) ==
+                summon_sources.end()) {
+                summon_sources.push_back(std::move(resolved));
+            }
+        }
+
         std::string ccode = emitProgram(program);
         std::ifstream runtime_file(SELENIUM_RUNTIME_C);
         if (!runtime_file) {
@@ -170,8 +195,11 @@ int main(int argc, char **argv) {
             }
         }
 
-        const std::string compile_command = shell_quote(cc) + " " + shell_quote(cfile) +
-                                            " -o " + shell_quote(exefile) + " -lm";
+        std::string compile_command = shell_quote(cc) + " " + shell_quote(cfile);
+        for (const auto &src : summon_sources) {
+            compile_command += " " + shell_quote(src);
+        }
+        compile_command += " -o " + shell_quote(exefile) + " -lm";
         const int compile_status = std::system(compile_command.c_str());
         if (compile_status == -1) {
             std::cerr << "seleniumc: failed to start host C compiler\n";

@@ -946,11 +946,11 @@
           ]
         },
         "selenium": {
-          "status": "partial",
+          "status": "implemented",
           "tests": [
             "tests/differential/ffi_call.sel"
           ],
-          "note": "summon extern declarations parse, but the declared symbol is not linked in generated builds."
+          "note": "summon declares the extern prototype and the referenced C source is compiled and linked into the --run build (tested end-to-end in tests/differential and pytest)."
         },
         "sigi": {
           "status": "missing",

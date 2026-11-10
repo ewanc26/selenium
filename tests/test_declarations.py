@@ -52,6 +52,35 @@ def test_top_level_summon_links_c_source(tmp_path):
     assert result.stdout == "21\n"
 
 
+def test_summon_links_multiple_c_sources_once_each(tmp_path):
+    require_row("ffi.call-c")
+    (tmp_path / "helper.c").write_text("int triple(int n) { return n * 3; }\n")
+    (tmp_path / "other.c").write_text("int twice(int n) { return n * 2; }\n")
+    program = tmp_path / "main.sel"
+    program.write_text(
+        'summon ritual triple(int n) -> int from "helper.c";\n'
+        'summon ritual twice(int n) -> int from "other.c";\n'
+        "whisper triple(twice(7));\n"
+    )
+    result = _run(program)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "42\n"
+
+
+def test_summon_missing_c_source_is_a_clean_error(tmp_path):
+    require_row("ffi.call-c")
+    program = tmp_path / "missing.sel"
+    program.write_text(
+        'summon ritual ghost(int n) -> int from "no_such_helper.c";\n'
+        "whisper ghost(1);\n"
+    )
+    result = _run(program)
+    assert result.returncode == 1
+    assert "summoned C source not found" in result.stderr
+    assert "no_such_helper.c" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 @pytest.mark.parametrize(
     "block",
     [
