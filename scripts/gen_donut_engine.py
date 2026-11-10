@@ -1,31 +1,36 @@
 #!/usr/bin/env python3
-"""Generate examples/donut_engine.sel: a live polygonal torus streaming shaded
-quads to the SDL2 host in host/donut_host.c.
+"""Generate examples/donut_engine.sel: a live orbiting-light torus streaming a
+per-frame vertex list to the SDL2 host in host/donut_host.c.
 
-Bit-compatible with the canonical engine, scripts/gen_donut_engine.py in the
-sigi repo: identical constants, accumulation, arithmetic order and %g number
-formatting, so frame n of this stream is byte-identical to frame n of sigi's
-(see tests/fixtures/donut_canonical_8f.txt and its cross-language test).
+Protocol v2 (whitespace-separated; whisper prints end with newlines, which are
+whitespace to the host's scanf loop):
 
-Token protocol (whitespace-separated; whisper prints end with newlines, which
-are whitespace to the host's scanf loop):
+    F                       begin frame
+    px py z intensity       one VERTEX: four %g numbers per vertex, printed
+                            one per line, 1500 vertices per frame in i*30+j
+                            order (50 ring steps x 30 tube steps)
+    S                       swap/present
 
-    F                              begin frame
-    P x1 y1 x2 y2 x3 y3 x4 y4 r g b  shaded quad, window coordinates
-    S                              swap/present
+The host (a faithful port of the reference doughnut.c renderer) builds the
+triangle mesh in-host and rasterizes the recorded vertex frames.
 
-Mirrored from the canonical: spin A accumulates +SPIN_STEP per frame
-(starting 0.0, so frame 0 uses A=0.05 like sigi), the ring and tube axes are
-float angles accumulated by TH_STEP / PH_STEP (not multiplied), corners use
-ct2 = cos(i + TH_STEP) and cp2 = cos(j + PH_STEP), and per-quad the tube
-sine stays sp1 for all four corners, matching the canonical's geometry.
-Numbers print through the summoned donut_num (printf %g), the same format
-sigi's runtime uses; strings go through whisper (puts).
+Parameters mirror the reference animation exactly, computed in double and
+bit-matched with the canonical sigi emitter: angleX = angleY = 0.5 via the
+same 12-dp-rounded cos/sin literals, angleZ accumulating +0.003 after each
+rendered frame, light_angle accumulating +0.025 before each computation,
+light_pos = (cos(la)*4.5, sin(la)*4.5, sin(la*0.7)*2.5), ring/tube angles
+u = i*round(2*pi/50) and v = j*round(2*pi/30),
+camera_dist = 5, fov = 500, projection px = (x/(z+5))*500 + 400,
+py = (y/(z+5))*500 + 300, per-vertex intensity =
+max(dot(rot_normal, unit(light-pos)), 0.08) / (1 + 0.04*dist), and rotation
+X then Y then Z with the reference's exact formulas and arithmetic order.
+Positions and normals rotate with the same rotate_vector ordering.
 
-The program emits a finite 48-frame prefix of the canonical stream and exits;
-the host replays the recorded frames forever, and a finite producer lets the
-host (which reads the whole stream before presenting) terminate under
-``--frames N``.
+Numbers print through the summoned donut_num helper (printf %g), the same
+format the other language emitters use; strings go through whisper (puts).
+The stream is a finite 48-frame prefix of the canonical animation and exits;
+the host replays the recorded frames forever and a finite producer keeps the
+read-the-whole-stream host pipeline terminating under ``--frames N``.
 
 Pipeline:
 
@@ -33,132 +38,178 @@ Pipeline:
         | ./build/donut_host --frames 3
 """
 
-import math
 import pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 
-R, TUBE = 3.0, 1.25
-RING, TUBE_N = 16, 10
-FRAMES = 48
-SPIN_STEP = 0.05
-TILT = 0.72
-SCALE, OX, OY = 28.0, 120.0, 120.0
-LIGHT = (0.32, 0.58, 0.75)
-TH_STEP = round(2 * math.pi / RING, 12)
-PH_STEP = round(2 * math.pi / TUBE_N, 12)
-CB, SB = round(math.cos(TILT), 12), round(math.sin(TILT), 12)
+import math
 
-# Corner slots mirror the canonical generator exactly: (cp, sp, ct, st),
-# with sp pinned to sp1 for all four corners and the ring/tube pair stepped
-# via the precomputed cp2/ct2/sp2 angles.
-CORNERS = (
-    ("cp1", "ct1", "st1"),
-    ("cp2", "ct1", "st1"),
-    ("cp2", "ct2", "st2"),
-    ("cp1", "ct2", "st2"),
+U_STEPS, V_STEPS = 50, 30
+R_MAJOR, R_MINOR = 2.0, 0.8
+FRAMES = 48
+CAXY = round(math.cos(0.5), 12)
+SAXY = round(math.sin(0.5), 12)
+U_STEP = round(2 * math.pi / U_STEPS, 12)
+V_STEP = round(2 * math.pi / V_STEPS, 12)
+SPIN_Z = 0.003
+LIGHT_STEP = 0.025
+LIGHT_RADIUS = 4.5
+LIGHT_Z_SCALE = 2.5
+LIGHT_Z_FREQ = 0.7
+CAMERA_DIST = 5.0
+FOV = 500.0
+HALF_W, HALF_H = 400.0, 300.0
+
+# Rotation temporaries carry p/n prefixes: bare y1 collides with math.h's
+# Bessel function once the generated C is compiled.
+TEMPS = (
+    "cax",
+    "sax",
+    "cay",
+    "say",
+    "caz",
+    "saz",
+    "lx",
+    "ly",
+    "lz",
+    "u",
+    "cu",
+    "su",
+    "v",
+    "cv",
+    "sv",
+    "vx",
+    "vy",
+    "vz",
+    "nx0",
+    "ny0",
+    "nz0",
+    "p1x",
+    "p1y",
+    "p1z",
+    "p2x",
+    "p2y",
+    "p2z",
+    "rpx",
+    "rpy",
+    "rpz",
+    "n1x",
+    "n1y",
+    "n1z",
+    "n2x",
+    "n2y",
+    "n2z",
+    "rnx",
+    "rny",
+    "rnz",
+    "ldx",
+    "ldy",
+    "ldz",
+    "dist",
+    "inten",
+    "camz",
+    "px",
+    "py",
 )
 
 lines = []
-
-
-# Canonical iteration counts: the ring angle runs from 0 while i < RING (~41
-# slices) and the tube angle from 0 while j < TUBE_N (~16 steps), because the
-# canonical accumulates the (rounded) angle steps rather than indexing.
-quads = math.ceil(RING / TH_STEP) * math.ceil(TUBE_N / PH_STEP)
 
 
 def emit(s=""):
     lines.append(s)
 
 
-def num(v):
-    return repr(round(v, 12))
-
-
-emit("// Generated by scripts/gen_donut_engine.py: a live spinning torus")
-emit("// streaming F/P/S tokens to host/donut_host.c (SDL2), bit-compatible")
-emit("// with the canonical sigi engine (same formulas, arithmetic order and")
-emit("// %g number formatting); vendored frames in tests/fixtures verify it.")
+emit("// Generated by scripts/gen_donut_engine.py: a live orbiting-light torus")
+emit("// streaming per-frame vertex lists to host/donut_host.c (SDL2),")
+emit("// protocol v2: F, 1500 x (px py z intensity) as %g, S.")
 emit('summon ritual donut_num(float v) -> int from "donut_num.c";')
-emit("wax float cb = {};".format(num(CB)))
-emit("wax float sb = {};".format(num(SB)))
-emit("wax float thstep = {};".format(num(TH_STEP)))
-emit("wax float phstep = {};".format(num(PH_STEP)))
-for name in (
-    "A",
-    "ca",
-    "sa",
-    "ct1",
-    "st1",
-    "ct2",
-    "st2",
-    "cp1",
-    "sp1",
-    "cp2",
-    "nx",
-    "ny",
-    "nz",
-    "lum",
-    "cr",
-    "cg",
-    "colb",
-    "rad",
-    "x",
-    "y",
-    "z",
-    "cy",
-    "cz",
-):
+emit("summon ritual sqrt(float v) -> float;")
+for name in TEMPS:
     emit("wax float {} = 0.0;".format(name))
 
-emit("orbit (wax int f = 0; f < {}; f = f + 1) {{".format(FRAMES))
-emit("    A = A + {};".format(num(SPIN_STEP)))
-emit("    ca = cos(A);")
-emit("    sa = sin(A);")
+emit("wax float az = 0.0;")
+emit("wax float la = 0.0;")
+emit("cax = {};".format(repr(CAXY)))
+emit("sax = {};".format(repr(SAXY)))
+emit("cay = {};".format(repr(CAXY)))
+emit("say = {};".format(repr(SAXY)))
+
+emit("orbit (wax int f = 0; f < {F}; f = f + 1) {{".format(F=FRAMES))
+emit("    la = la + {LS};".format(LS=LIGHT_STEP))
+emit("    lx = cos(la) * {R};".format(R=LIGHT_RADIUS))
+emit("    ly = sin(la) * {R};".format(R=LIGHT_RADIUS))
+emit("    lz = sin(la * {F}) * {S};".format(F=LIGHT_Z_FREQ, S=LIGHT_Z_SCALE))
+emit("    caz = cos(az);")
+emit("    saz = sin(az);")
 emit('    whisper "F";')
-emit("    orbit (wax float i = 0.0; i < {}; i = i + thstep) {{".format(RING))
-emit("        ct1 = cos(i);")
-emit("        st1 = sin(i);")
-emit("        ct2 = cos(i + thstep);")
-emit("        st2 = sin(i + thstep);")
-emit("        orbit (wax float j = 0.0; j < {}; j = j + phstep) {{".format(TUBE_N))
-emit("            cp1 = cos(j);")
-emit("            sp1 = sin(j);")
-emit("            cp2 = cos(j + phstep);")
-emit("            ny = sp1 * ca - cp1 * st1 * sa;")
-emit("            nz = sp1 * sa + cp1 * st1 * ca;")
-emit("            nx = cp1 * ct1 * cb + nz * sb;")
-emit("            lum = (nx * {} + ny * {} + nz * {} + 1.0) * 0.5;".format(*LIGHT))
-emit("            cr = lum * 150.0 + 80.0;")
-emit("            cg = lum * 90.0 + 50.0;")
-emit("            colb = lum * 60.0 + 30.0;")
-emit('            whisper "P";')
-for cp, ct, st in CORNERS:
-    emit("            rad = {} * {} + {};".format(cp, num(TUBE), num(R)))
-    emit("            x = rad * {};".format(ct))
-    emit("            y = sp1 * {};".format(num(TUBE)))
-    emit("            z = rad * {};".format(st))
-    emit("            cy = y * ca - z * sa;")
-    emit("            cz = y * sa + z * ca;")
-    emit(
-        "            donut_num((x * cb + cz * sb) * {} + {});".format(
-            num(SCALE), num(OX)
-        )
-    )
-    emit("            donut_num({} - cy * {});".format(num(OY), num(SCALE)))
-emit("            donut_num(cr);")
-emit("            donut_num(cg);")
-emit("            donut_num(colb);")
+emit("    orbit (wax int i = 0; i < {U}; i = i + 1) {{".format(U=U_STEPS))
+emit("        u = i * {};".format(repr(U_STEP)))
+emit("        cu = cos(u);")
+emit("        su = sin(u);")
+emit("        orbit (wax int j = 0; j < {V}; j = j + 1) {{".format(V=V_STEPS))
+emit("            v = j * {};".format(repr(V_STEP)))
+emit("            cv = cos(v);")
+emit("            sv = sin(v);")
+# Base torus vertex and surface normal (reference generate_torus).
+emit("            vx = ({R} + {M} * cv) * cu;".format(R=R_MAJOR, M=R_MINOR))
+emit("            vy = ({R} + {M} * cv) * su;".format(R=R_MAJOR, M=R_MINOR))
+emit("            vz = {M} * sv;".format(M=R_MINOR))
+emit("            nx0 = cv * cu;")
+emit("            ny0 = cv * su;")
+emit("            nz0 = sv;")
+# Rotate position: X, then Y, then Z (reference rotate_vector order).
+emit("            p1y = vy * cax - vz * sax;")
+emit("            p1z = vy * sax + vz * cax;")
+emit("            p1x = vx;")
+emit("            p2x = p1x * cay + p1z * say;")
+emit("            p2z = -p1x * say + p1z * cay;")
+emit("            p2y = p1y;")
+emit("            rpx = p2x * caz - p2y * saz;")
+emit("            rpy = p2x * saz + p2y * caz;")
+emit("            rpz = p2z;")
+# Rotate the normal with the same rotation.
+emit("            n1y = ny0 * cax - nz0 * sax;")
+emit("            n1z = ny0 * sax + nz0 * cax;")
+emit("            n1x = nx0;")
+emit("            n2x = n1x * cay + n1z * say;")
+emit("            n2z = -n1x * say + n1z * cay;")
+emit("            n2y = n1y;")
+emit("            rnx = n2x * caz - n2y * saz;")
+emit("            rny = n2x * saz + n2y * caz;")
+emit("            rnz = n2z;")
+# Orbiting point light, Lambertian diffuse + ambient floor, attenuation.
+emit("            ldx = lx - rpx;")
+emit("            ldy = ly - rpy;")
+emit("            ldz = lz - rpz;")
+emit("            dist = sqrt(ldx * ldx + ldy * ldy + ldz * ldz);")
+emit("            eclipse (dist > 1e-10) {")
+emit("                ldx = ldx / dist;")
+emit("                ldy = ldy / dist;")
+emit("                ldz = ldz / dist;")
+emit("            };")
+emit("            inten = rnx * ldx + rny * ldy + rnz * ldz;")
+emit("            eclipse (inten < 0.08) {")
+emit("                inten = 0.08;")
+emit("            };")
+emit("            inten = inten / (1.0 + 0.04 * dist);")
+# Camera distance and perspective projection (reference fov 500).
+emit("            camz = rpz + {D};".format(D=CAMERA_DIST))
+emit("            px = (rpx / camz) * {F} + {HW};".format(F=FOV, HW=HALF_W))
+emit("            py = (rpy / camz) * {F} + {HH};".format(F=FOV, HH=HALF_H))
+emit("            donut_num(px);")
+emit("            donut_num(py);")
+emit("            donut_num(camz);")
+emit("            donut_num(inten);")
 emit("        };")
 emit("    };")
 emit('    whisper "S";')
+emit("    az = az + {};".format(SPIN_Z))
 emit("};")
 
 text = "\n".join(lines) + "\n"
 (ROOT / "examples" / "donut_engine.sel").write_text(text, encoding="utf-8")
 print(
-    "wrote examples/donut_engine.sel: {} lines, {} frames x {} quads".format(
-        len(text.splitlines()), FRAMES, quads
+    "wrote examples/donut_engine.sel: {} lines, {} frames x {} vertices".format(
+        len(text.splitlines()), FRAMES, U_STEPS * V_STEPS
     )
 )

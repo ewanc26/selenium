@@ -106,38 +106,23 @@ def test_example_output(name):
     assert result.stdout == EXPECTED_OUTPUT[name]
 
 
-FRAME_QUADS = 656  # canonical grid: ~41 ring slices x ~16 tube steps per frame
+FRAME_VERTS = 1500  # canonical mesh: U_STEPS=50 x V_STEPS=30 vertices per frame
 FRAMES = 48
 
 
 def test_donut_engine_token_stream():
-    # The live engine emits a finite F/P/S token stream the SDL2 host replays.
+    # The live engine emits a finite F/P/S vertex stream the SDL2 host replays.
     result = _run_example(ROOT / "examples" / "donut_engine.sel")
     assert result.returncode == 0, result.stderr
-    toks = result.stdout.split()
-    # First frame is F, last token is S; every P carries 11 numeric arguments.
-    assert toks[0] == "F" and toks[-1] == "S"
-    frames = quads = 0
-    frame_quads = 0
-    for t in toks:
-        if t == "F":
-            assert frame_quads == FRAME_QUADS or frames == 0
-            frames += 1
-            frame_quads = 0
-        elif t == "P":
-            quads += 1
-            frame_quads += 1
-    assert frames == FRAMES and quads == FRAMES * FRAME_QUADS, (frames, quads)
-    # Every P is followed by exactly 11 floats before the next token.
-    i = 0
-    while i < len(toks):
-        if toks[i] == "P":
-            for t in toks[i + 1 : i + 12]:
-                float(t)
-            i += 12
-        else:
-            assert toks[i] in ("F", "S"), toks[i]
-            i += 1
+    lines = result.stdout.splitlines()
+    assert lines[0] == "F" and lines[-1] == "S"
+    # Frames of FRAME_VERTS vertices, each vertex printing px py z intensity.
+    assert len(lines) == FRAMES * (2 + FRAME_VERTS * 4), len(lines)
+    for f in range(FRAMES):
+        frame = lines[f * (2 + FRAME_VERTS * 4) : (f + 1) * (2 + FRAME_VERTS * 4)]
+        assert frame[0] == "F" and frame[-1] == "S"
+        for k in range(1, 1 + FRAME_VERTS * 4):
+            float(frame[k])
 
 
 def test_donut_engine_generator_is_fresh():
@@ -195,18 +180,26 @@ def test_donut_engine_pipeline_headless_render():
         env={**__import__("os").environ, "SDL_VIDEODRIVER": "dummy"},
     )
     assert host.returncode == 0, host.stderr
-    assert "frames" in host.stderr and "quads" in host.stderr
-    frames, quads = host.stderr.strip().split(": ")[1].split(" frames, ")
-    assert int(frames) == FRAMES and int(quads.split()[0]) == FRAMES * FRAME_QUADS
+    assert "frames" in host.stderr and "vertices" in host.stderr
+    frames, verts = host.stderr.strip().split(": ")[1].split(" frames, ")
+    assert int(frames) == FRAMES
+    assert int(verts.split()[0]) == FRAMES * FRAME_VERTS
 
 
 def test_donut_engine_matches_canonical_frames():
-    # Cross-language harmonisation: the engine's first 8 frames are
-    # byte-identical to the canonical sigi stream (vendored so CI needs
-    # no sigi checkout; frame 0 of the canonical starts at spin A=0.05).
+    # Cross-language harmonisation: the engine's first 2 frames are
+    # byte-identical to the canonical sigi v2 vertex stream (vendored so CI
+    # needs no sigi checkout). Report the first difference on failure.
     result = _run_example(ROOT / "examples" / "donut_engine.sel")
     assert result.returncode == 0, result.stderr
-    fixture = (ROOT / "tests" / "fixtures" / "donut_canonical_8f.txt").read_text()
-    fixture_lines = fixture.splitlines(keepends=True)
-    assert len(fixture_lines) == 8 * (2 + FRAME_QUADS * 12), len(fixture_lines)
-    assert result.stdout[: len(fixture)] == fixture
+    fixture = (ROOT / "tests" / "fixtures" / "donut_canonical_v2_2f.txt").read_text()
+    lines = fixture.splitlines(keepends=True)
+    assert len(lines) == 2 * (2 + FRAME_VERTS * 4), len(lines)
+    got = result.stdout.splitlines(keepends=True)[: len(lines)]
+    if got != lines:
+        for i, (a, b) in enumerate(zip(lines, got)):
+            if a != b:
+                assert (
+                    False
+                ), f"first difference at line {i + 1}: expected {a!r}, got {b!r}"
+        assert False, f"engine stream shorter than canonical: {len(got)} lines"
