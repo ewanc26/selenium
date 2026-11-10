@@ -199,6 +199,12 @@ int main(int argc, char **argv) {
         for (const auto &src : summon_sources) {
             compile_command += " " + shell_quote(src);
         }
+        // Compile with FMA contraction disabled: contracted multiply-adds
+        // change results of adjacent float operations, and selenium programs
+        // (e.g. the donut engine) rely on per-operation float32 semantics
+        // that match the C expressions they translate to. gcc/clang both
+        // accept the flag; -O0 alone does not prevent contraction on arm64.
+        compile_command += " -ffp-contract=off";
         compile_command += " -o " + shell_quote(exefile) + " -lm";
         const int compile_status = std::system(compile_command.c_str());
         if (compile_status == -1) {
