@@ -191,6 +191,10 @@ std::shared_ptr<Block> Parser::parseBlock() {
 std::shared_ptr<Stmt> Parser::parseStatement() {
     if (check("WAX")) { advance(); return parseVarDecl(true); }
     if (check("SEAL")) { advance(); return parseVarDecl(false); }
+    if (check("SUMMON") || check("RITUAL")) {
+        throw std::runtime_error("function declarations are only allowed at top level at line " +
+                                 std::to_string(peek().line));
+    }
     if (check("IF") || check("ECLIPSE")) {
         advance();
         expect("(", "expected (");

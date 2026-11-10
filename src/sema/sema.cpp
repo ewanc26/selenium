@@ -28,6 +28,11 @@ void SemanticAnalyzer::analyze(Program &prog) {
     functionArities.clear();
     predeclaredGlobals.clear();
     predeclaredEnumerators.clear();
+    // Runtime input builtins are always callable.
+    for (const char *builtin : {"read_int", "read_float", "read_bool", "read_char"}) {
+        functions.insert(builtin);
+        functionArities[builtin] = 0;
+    }
     // Predeclare global variables and functions so forward references work.
     for (const auto &item : prog.items) {
         if (!item) continue;

@@ -98,6 +98,22 @@ static PType infer_ptype(const std::shared_ptr<Expr> &e) {
     return infer_ptype_node(e->node);
 }
 
+// Whether a top-level initializer may appear in a C global definition;
+// anything computed is postponed into main's prologue instead.
+static bool is_constant_init(const std::shared_ptr<Expr> &e) {
+    if (!e) return true;
+    if (std::holds_alternative<IntLit>(e->node) || std::holds_alternative<FloatLit>(e->node) ||
+        std::holds_alternative<CharLit>(e->node) || std::holds_alternative<BoolLit>(e->node) ||
+        std::holds_alternative<StringLit>(e->node) || std::holds_alternative<NullptrLit>(e->node)) {
+        return true;
+    }
+    if (std::holds_alternative<UnaryExpr>(e->node)) {
+        const auto &u = std::get<UnaryExpr>(e->node);
+        return (u.op == UnaryOp::Neg || u.op == UnaryOp::BitNot) && is_constant_init(u.expr);
+    }
+    return false;
+}
+
 static std::string emitType(std::shared_ptr<TypeRef> t) {
     if (!t) return "void";
     if (t->kind == TypeKind::Ptr) {
@@ -207,7 +223,13 @@ static std::string emitExprNode(const ExprNode &node) {
     }
     if (std::holds_alternative<CallExpr>(node)) {
         auto &c = std::get<CallExpr>(node);
-        std::string s = c.name + "(";
+        // Runtime input builtins map onto the runtime entry points.
+        std::string callee = c.name;
+        if (callee == "read_int") callee = "selenium_read_int";
+        else if (callee == "read_float") callee = "selenium_read_float";
+        else if (callee == "read_bool") callee = "selenium_read_bool";
+        else if (callee == "read_char") callee = "selenium_read_char";
+        std::string s = callee + "(";
         for (size_t i = 0; i < c.args.size(); i++) {
             if (i) s += ",";
             s += emitExpr(c.args[i]);
@@ -416,8 +438,10 @@ std::string emitProgram(const Program &prog) {
         }
     }
     ss << "\n";
-    
-    // globals
+
+    // globals; non-constant initializers are postponed into main's
+    // prologue, since C requires compile-time-constant global inits.
+    std::vector<std::pair<std::string, std::shared_ptr<Expr>>> postponed_inits;
     for (auto &it : others) {
         if (std::holds_alternative<VarDeclStmt>(it->node)) {
             auto &v = std::get<VarDeclStmt>(it->node);
@@ -425,11 +449,14 @@ std::string emitProgram(const Program &prog) {
             if (v.type->dims.size()) {
                 for (auto d : v.type->dims) { if (d>0) ss << "[" << d << "]"; else ss << "[]"; }
             }
-            if (v.init) {
-                // check if string literal
+            const bool constant_init = !v.init || is_constant_init(v.init);
+            if (v.init && constant_init) {
                 ss << " = " << emitExpr(v.init);
             }
             ss << ";\n";
+            if (v.init && !constant_init) {
+                postponed_inits.emplace_back(v.name, v.init);
+            }
             if (v.type) var_types()[v.name] = v.type->kind;
         } else if (std::holds_alternative<StructDeclStmt>(it->node)) {
             auto &s = std::get<StructDeclStmt>(it->node);
@@ -468,12 +495,20 @@ std::string emitProgram(const Program &prog) {
             ss << emitType(fn.params[i].type) << " " << fn.params[i].name;
         }
         ss << ")";
+        // Register parameters so typed prints inside the body infer them.
+        for (const auto &p : fn.params) {
+            if (p.type) var_types()[p.name] = p.type->kind;
+        }
         emitBlock(fn.body, ss, 0);
         ss << "\n";
     }
     
     // main
     ss << "int main() {\n";
+    // Postponed top-level initializers run before any other statement.
+    for (auto &[name, init] : postponed_inits) {
+        ss << "    " << name << " = " << emitExpr(init) << ";\n";
+    }
     for (auto &it : others) {
         if (std::holds_alternative<VarDeclStmt>(it->node)) {
             // Top-level variables were emitted as globals above.
