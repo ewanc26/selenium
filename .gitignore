@@ -65,6 +65,8 @@ coverage.xml
 
 # Selenium compiler outputs
 *.c
+# SDL2 donut host source is real code, not a compiler output
+!host/donut_host.c
 *.out
 # Executables (no extension on macOS)
 seleniumc

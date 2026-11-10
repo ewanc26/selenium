@@ -104,3 +104,89 @@ def test_example_output(name):
     result = _run_example(ROOT / "examples" / f"{name}.sel")
     assert result.returncode == 0, result.stderr
     assert result.stdout == EXPECTED_OUTPUT[name]
+
+
+def test_donut_engine_token_stream():
+    # The live engine emits a finite F/P/S token stream the SDL2 host replays.
+    result = _run_example(ROOT / "examples" / "donut_engine.sel")
+    assert result.returncode == 0, result.stderr
+    toks = result.stdout.split()
+    # First frame is F, last token is S; every P carries 11 numeric arguments.
+    assert toks[0] == "F" and toks[-1] == "S"
+    frames = quads = 0
+    for t in toks:
+        if t == "F":
+            frames += 1
+        elif t == "P":
+            quads += 1
+    assert frames == 40 and quads == 40 * 160, (frames, quads)
+    # Every P is followed by exactly 11 floats before the next token.
+    i = 0
+    while i < len(toks):
+        if toks[i] == "P":
+            for t in toks[i + 1 : i + 12]:
+                float(t)
+            i += 12
+        else:
+            assert toks[i] in ("F", "S"), toks[i]
+            i += 1
+
+
+def test_donut_engine_generator_is_fresh():
+    # Regenerating the engine example reproduces the committed file exactly.
+    import subprocess
+
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "gen_donut_engine.py")],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert not subprocess.run(
+        ["git", "diff", "--quiet", "examples/donut_engine.sel"], cwd=ROOT
+    ).returncode
+
+
+@pytest.mark.skipif(shutil.which("sdl2-config") is None, reason="no SDL2 on PATH")
+def test_donut_engine_pipeline_headless_render():
+    # Engine stdout piped into the SDL2 host renders N frames headlessly.
+    cc = _cc()
+    host_bin = ROOT / "build" / "donut_host"
+    if not host_bin.exists():
+        subprocess.run(
+            f"cc -std=c99 -O2 $(sdl2-config --cflags --libs) -o {host_bin} host/donut_host.c",
+            cwd=ROOT,
+            shell=True,
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+    engine = subprocess.run(
+        [
+            str(ROOT / "build" / "seleniumc"),
+            str(ROOT / "examples" / "donut_engine.sel"),
+            "--run",
+            "--cc",
+            cc,
+        ],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert engine.returncode == 0, engine.stderr
+    host = subprocess.run(
+        [str(host_bin), "--frames", "3"],
+        cwd=ROOT,
+        input=engine.stdout,
+        capture_output=True,
+        text=True,
+        timeout=120,
+        env={**__import__("os").environ, "SDL_VIDEODRIVER": "dummy"},
+    )
+    assert host.returncode == 0, host.stderr
+    assert "frames" in host.stderr and "quads" in host.stderr
+    frames, quads = host.stderr.strip().split(": ")[1].split(" frames, ")
+    assert int(frames) == 40 and int(quads.split()[0]) == 40 * 160
