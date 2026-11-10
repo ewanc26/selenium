@@ -491,6 +491,10 @@ std::string emitProgram(const Program &prog) {
     }
     ss << "\n";
     
+    // Libm builtins return doubles for typed printing.
+    func_ret_types()["sin"] = TypeKind::Float;
+    func_ret_types()["cos"] = TypeKind::Float;
+
     // function definitions
     for (auto &it : funcs) {
         auto &fn = std::get<FunctionDeclStmt>(it->node);

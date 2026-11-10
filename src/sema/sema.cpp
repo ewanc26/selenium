@@ -33,6 +33,11 @@ void SemanticAnalyzer::analyze(Program &prog) {
         functions.insert(builtin);
         functionArities[builtin] = 0;
     }
+    // Math builtins map straight onto the C runtime's libm.
+    for (const char *builtin : {"sin", "cos"}) {
+        functions.insert(builtin);
+        functionArities[builtin] = 1;
+    }
     // Predeclare global variables and functions so forward references work.
     for (const auto &item : prog.items) {
         if (!item) continue;

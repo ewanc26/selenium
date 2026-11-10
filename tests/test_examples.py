@@ -45,6 +45,16 @@ EXPECTED_OUTPUT = {
 }
 
 
+def test_donut_renders_sixty_quads_per_frame():
+    # The donut demo emits a 4-frame polygonal torus as whitespace-tolerant SVG.
+    result = _run_example(ROOT / "examples" / "donut.sel")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count("<polygon") == 640
+    assert result.stdout.startswith("<svg") and result.stdout.rstrip().endswith(
+        "</svg>"
+    )
+
+
 def test_collatz_trajectory():
     # The example walks the canonical 27 trajectory: 112 values, ending at 1.
     result = _run_example(ROOT / "examples" / "collatz.sel")
