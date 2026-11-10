@@ -12,7 +12,7 @@ cmake --build build -j2
 ./build/unit_tests
 ```
 
-The current unit-test suite is not yet green on main: the parser hello-world test fails. End-to-end differential testing must be ported from the old Python module entry point to build/seleniumc; see https://github.com/ewanc26/selenium/issues/14.
+The unit-test suite and CLI smoke tests run via CTest. End-to-end differential testing should invoke `build/seleniumc` (the C++ compiler) rather than the removed Python entry point; see https://github.com/ewanc26/selenium/issues/14.
 
 ## Working rules
 

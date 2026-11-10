@@ -8,7 +8,9 @@ import tempfile
 from pathlib import Path
 
 
-def run(command: list[str], expected_status: int = 0) -> subprocess.CompletedProcess[str]:
+def run(
+    command: list[str], expected_status: int = 0
+) -> subprocess.CompletedProcess[str]:
     result = subprocess.run(command, text=True, capture_output=True, timeout=30)
     if result.returncode != expected_status:
         raise AssertionError(
@@ -23,14 +25,22 @@ def main() -> int:
         print("usage: smoke.py <seleniumc> <host-c-compiler>", file=sys.stderr)
         return 2
     compiler = str(Path(sys.argv[1]).resolve())
-    host_cc = str(Path(sys.argv[2]).resolve())
+    host_cc_arg = sys.argv[2]
+    host_cc_path = Path(host_cc_arg)
+    if host_cc_path.is_absolute() or host_cc_path.exists():
+        host_cc = str(host_cc_path.resolve())
+    else:
+        # Keep as-is for PATH lookup (e.g., "gcc", "cc")
+        host_cc = host_cc_arg
     root = Path(__file__).resolve().parents[1]
     example = str(root / "examples" / "hello_world.sel")
 
     with tempfile.TemporaryDirectory(prefix="selenium smoke ' path ") as directory:
         temp = Path(directory)
         wrapper = temp / "host C compiler's wrapper"
-        wrapper.write_text("#!/bin/sh\nexec " + shlex.quote(host_cc) + ' "$@"\n', encoding="utf-8")
+        wrapper.write_text(
+            "#!/bin/sh\nexec " + shlex.quote(host_cc) + ' "$@"\n', encoding="utf-8"
+        )
         wrapper.chmod(0o755)
 
         result = run([compiler, example, "--run", "--cc", str(wrapper)])
@@ -46,19 +56,30 @@ def main() -> int:
         output = temp / "generated output with spaces.c"
         run([compiler, example, "-o", str(output)])
         generated = output.read_text(encoding="utf-8")
-        if "selenium_print_string" not in generated or "void selenium_print_string" not in generated:
-            raise AssertionError("generated C does not embed the required runtime helpers")
+        if (
+            "selenium_print_string" not in generated
+            or "void selenium_print_string" not in generated
+        ):
+            raise AssertionError(
+                "generated C does not embed the required runtime helpers"
+            )
         if "selenium_runtime.c" in generated:
-            raise AssertionError("generated C must not depend on the source-tree runtime path")
+            raise AssertionError(
+                "generated C must not depend on the source-tree runtime path"
+            )
 
         # Generated C should remain buildable after being copied outside the repository.
         standalone = temp / "standalone executable"
         run([str(wrapper), str(output), "-o", str(standalone), "-lm"])
         result = run([str(standalone)])
         if result.stdout != "Hello, World!\n":
-            raise AssertionError(f"standalone generated C did not run: {result.stdout!r}")
+            raise AssertionError(
+                f"standalone generated C did not run: {result.stdout!r}"
+            )
 
-        missing = run([compiler, str(temp / "missing.sel"), "-o", str(output)], expected_status=1)
+        missing = run(
+            [compiler, str(temp / "missing.sel"), "-o", str(output)], expected_status=1
+        )
         if "cannot read source file" not in missing.stderr:
             raise AssertionError(f"unclear missing-file diagnostic: {missing.stderr!r}")
         invalid = run([compiler, example, "--unknown"], expected_status=1)

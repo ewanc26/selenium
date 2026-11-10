@@ -18,8 +18,9 @@ def _cc() -> str:
 
 
 def _run(source: pathlib.Path) -> subprocess.CompletedProcess:
+    seleniumc = ROOT / "build" / "seleniumc"
     return subprocess.run(
-        [sys.executable, "-m", "selenium.main", str(source), "--run", "--cc", _cc()],
+        [str(seleniumc), str(source), "--run", "--cc", _cc()],
         cwd=ROOT,
         capture_output=True,
         text=True,
