@@ -1,4 +1,6 @@
 #include "c_emitter.h"
+#include <cstdio>
+#include <cstdlib>
 #include <sstream>
 #include <iostream>
 #include <unordered_map>
@@ -148,9 +150,22 @@ static std::string emitType(std::shared_ptr<TypeRef> t) {
 
 static std::string emitExpr(std::shared_ptr<Expr> e);
 
+static std::string floatLiteral(double value) {
+    // Shortest decimal form that round-trips the exact double, always with
+    // a '.' or exponent so the emitted token stays a floating literal.
+    char buf[64];
+    for (int prec = 1; prec <= 17; ++prec) {
+        std::snprintf(buf, sizeof buf, "%.*g", prec, value);
+        if (std::strtod(buf, nullptr) == value) break;
+    }
+    std::string s = buf;
+    if (s.find('.') == std::string::npos && s.find_first_of("eEpP") == std::string::npos) s += ".0";
+    return s;
+}
+
 static std::string emitExprNode(const ExprNode &node) {
     if (std::holds_alternative<IntLit>(node)) return std::to_string(std::get<IntLit>(node).value);
-    if (std::holds_alternative<FloatLit>(node)) return std::to_string(std::get<FloatLit>(node).value);
+    if (std::holds_alternative<FloatLit>(node)) return floatLiteral(std::get<FloatLit>(node).value);
     if (std::holds_alternative<CharLit>(node)) {
         char c = std::get<CharLit>(node).value;
         std::string s = "'";
