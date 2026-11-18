@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://github.com/ewanc26/selenium/actions/workflows/ci.yml"><img src="https://github.com/ewanc26/selenium/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/ewanc26/selenium?label=licence" alt="Licence"></a>
+  <a href="https://github.com/sponsors/ewanc26"><img src="https://img.shields.io/github/sponsors/ewanc26?logo=githubsponsors&logoColor=white&label=sponsors" alt="Sponsor"></a>
+</p>
+
 # Selenium compiler
 
 Selenium is a small esoteric language with a lunar / poetic surface and a strict, C-like core.
@@ -73,7 +79,8 @@ wax Node mid = {2, &tail};              // a global may take the address of an e
 wax Node[2] pool = [{1, &pool[1]}, {2, nullptr}];
 ```
 
-Global initialisers may be constant expressions, string literals, `nullptr`, function names and addresses of globals (`&x`, `&arr[i]`, `&s.field`). A global may refer to its own address in its initialiser, as in `pool` above. A global initialiser that uses a runtime value is assigned in `main`, but a brace or array list needs every element to be constant.
+Global initialisers may be constant expressions, string literals, `nullptr`, function names and addresses of globals (`&x`, `&arr[i]`, `&s.field`). A global may refer to its own address in its initialiser, as in `pool` above. A global initialiser that uses a runtime valu
+e is assigned in `main`, but a brace or array list needs every element to be constant.
 
 ### Functions
 
@@ -170,7 +177,8 @@ whisper measure(arr);
 
 ```selenium
 wax float f = cast(float, 5);
-wax int i = cast(int, 3.14);
+wax int i = 
+cast(int, 3.14);
 ```
 
 Explicit type conversion between numeric types, bool, and char.
@@ -243,7 +251,8 @@ The documented C++ build target is `build/seleniumc`. The runtime helpers are ch
 - The compiler is intentionally strict — no implicit type coercion.
 - All types must be declared explicitly.
 - Top-level `wax`/`seal` declarations are emitted as C globals; everything else runs in `main`.
-- Function definitions can appear anywhere at the top level; forward calls are supported.
+- Function definitions can appear anywhere at the top leve
+l; forward calls are supported.
 
 ## Support
 
@@ -251,3 +260,11 @@ If you find this project useful, consider supporting its development:
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/ewancroft)
 [![GitHub Sponsors](https://img.shields.io/badge/GitHub%20Sponsors-30363D?style=for-the-badge&logo=github&logoColor=white)](https://github.com/sponsors/ewanc26)
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and the checks required before opening a pull request.
+
+## Licence
+
+See [LICENSE](LICENSE) for the licence terms.
