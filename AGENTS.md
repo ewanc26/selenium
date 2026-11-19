@@ -4,7 +4,7 @@ Guidance for AI coding agents working in **selenium**.
 
 ## Project overview
 
-an esoteric programming language with a lunar poetic theme that compiles to C.
+An esoteric programming language with a lunar poetic theme that compiles to C.
 
 - Language: C++
 - Default branch: main
