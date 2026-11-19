@@ -80,8 +80,7 @@ wax Node mid = {2, &tail};              // a global may take the address of an e
 wax Node[2] pool = [{1, &pool[1]}, {2, nullptr}];
 ```
 
-Global initialisers may be constant expressions, string literals, `nullptr`, function names and addresses of globals (`&x`, `&arr[i]`, `&s.field`). A global may refer to its own address in its initialiser, as in `pool` above. A global initialiser that uses a runtime valu
-e is assigned in `main`, but a brace or array list needs every element to be constant.
+Global initialisers may be constant expressions, string literals, `nullptr`, function names and addresses of globals (`&x`, `&arr[i]`, `&s.field`). A global may refer to its own address in its initialiser, as in `pool` above. A global initialiser that uses a runtime value is assigned in `main`, but a brace or array list needs every element to be constant.
 
 ### Functions
 
@@ -178,8 +177,7 @@ whisper measure(arr);
 
 ```selenium
 wax float f = cast(float, 5);
-wax int i = 
-cast(int, 3.14);
+wax int i = cast(int, 3.14);
 ```
 
 Explicit type conversion between numeric types, bool, and char.
@@ -252,8 +250,7 @@ The documented C++ build target is `build/seleniumc`. The runtime helpers are ch
 - The compiler is intentionally strict — no implicit type coercion.
 - All types must be declared explicitly.
 - Top-level `wax`/`seal` declarations are emitted as C globals; everything else runs in `main`.
-- Function definitions can appear anywhere at the top leve
-l; forward calls are supported.
+- Function definitions can appear anywhere at the top level; forward calls are supported.
 
 ## Support
 
