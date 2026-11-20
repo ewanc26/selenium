@@ -1,25 +1,30 @@
 # Contributing to Selenium
 
-Selenium is a C++20 compiler that lowers the .sel language to generated C.
+An esoteric language with a lunar/poetic surface and a strict, C-like core, compiling to C via a C++ compiler (`wax` declares mutable, `seal` declares immutable, and so on down the word set). Thanks for wanting to help!
 
-## Development setup
+Not to be confused with the browser automation stack; this one waxes and seals.
 
-A C++20 compiler, CMake, and a host C compiler are required. Catch2 is fetched by CMake during configuration.
+## Getting started
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
-cmake --build build -j2
-./build/unit_tests
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j
+# binary: build/seleniumc
 ```
 
-The unit-test suite and CLI smoke tests run via CTest. End-to-end differential testing should invoke `build/seleniumc` (the C++ compiler) rather than the removed Python entry point; see https://github.com/ewanc26/selenium/issues/14.
+## Notes for this project
 
-## Working rules
+- The surface is lunar and poetic; the core is strict and C-like. Keep both: new syntax should read like a moonlit night and lower like C, not drift toward either plain English or widgetry.
+- The language reference below the fold in the README is the contract: changes need a reference-table update in the same PR.
+- The compiler emits readable C (`seleniumc hello.sel -o hello.c` is meant to be inspected); don't obfuscate the output.
+- `--run` with a configurable host compiler (`--cc`) is part of the API: keep it working when the generated code changes shape.
 
-- Read the README, CMake build definition, compiler sources, and CI workflow before making changes.
-- Preserve the lexer → parser → semantic analysis → C code generation pipeline.
-- Update unit or differential tests when behavior changes.
-- Do not claim a feature works merely because it appears in the language reference or capabilities.json.
-- Keep README.md, AGENTS.md, CONTRIBUTING.md, CI, runtime paths, and the capability matrix aligned with the source that actually builds.
-- Keep changes focused, and use a feature branch and pull request.
-- Report the exact build and test commands run and their results.
+## Before opening a PR
+
+- Build passes and sample programs compile and run (`--run` path included).
+- Conventional commits; focused PRs; include sample `.sel` programs exercising the change.
+- AI-assisted PRs welcome; stand behind every line and run both paths yourself.
+
+## Licence
+
+See [LICENSE](LICENSE). Contributions accepted under the same terms.
