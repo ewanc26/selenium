@@ -263,6 +263,8 @@ If you find this project useful, consider supporting its development:
 
 See [LICENSE](LICENSE) for the licence terms.
 
+Copyright (C) 2026 Ewan Croft (ewanc26).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow and the checks required before opening a pull request.
